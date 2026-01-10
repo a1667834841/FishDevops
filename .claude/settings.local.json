@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__zai-mcp-server__extract_text_from_screenshot",
+      "Bash(conda activate:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "enabledMcpjsonServers": ["adb"]
+}

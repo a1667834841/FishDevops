@@ -1,0 +1,38 @@
+# 闲鱼API服务配置文件示例
+# 复制此文件为 config.yaml 或 config.local.yaml 并根据需要修改
+
+# 服务器配置
+server:
+  # 服务端口，默认 8080
+  port: 8080
+  # 运行模式: debug, release, test
+  mode: release
+  # 请求超时时间（秒）
+  timeout: 30
+
+# 浏览器配置
+browser:
+  # 是否使用无头浏览器
+  headless: true
+  # 浏览器操作超时时间（秒）
+  timeout: 60
+
+# 飞书配置（可选）
+feishu:
+  # 是否启用飞书功能
+  enabled: false
+  # 飞书应用ID
+  app_id: ""
+  # 飞书应用密钥
+  app_secret: ""
+  # 飞书多维表格应用token
+  app_token: ""
+  # 飞书数据表token
+  table_token: ""
+
+# 日志配置
+logging:
+  # 日志级别: debug, info, warn, error
+  level: info
+  # 日志格式: json, text
+  format: text

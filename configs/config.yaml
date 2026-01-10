@@ -1,0 +1,23 @@
+# 服务器配置
+server:
+  port: 8080
+  mode: release  # debug, release, test
+  timeout: 30
+
+# 浏览器配置
+browser:
+  headless: true
+  timeout: 60
+
+# 飞书配置
+feishu:
+  enabled: true
+  app_id: "cli_a9c7f6863c789bc9"
+  app_secret: "feaO04UHm1hETDlGemkFphQpUA72GFjN"
+  app_token: "CCRAbaIhRaStpSsMIFNcFt1ende"
+  table_token: "tbl8Rl8YvEL7RmPN"
+
+# 日志配置
+logging:
+  level: info  # debug, info, warn, error
+  format: text  # json, text

@@ -1,0 +1,153 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+  schedule:
+    # 每30分钟执行一次
+    - cron: '*/30 * * * *'
+
+env:
+  GO_VERSION: '1.23'
+
+jobs:
+  # 编译打包 - 所有二进制文件
+  build:
+    name: Build Binaries
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Install Playwright browsers
+        run: |
+          go install github.com/playwright-community/playwright-go/cmd/playwright@latest
+          playwright install --with-deps chromium
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: success()
+        with:
+          file: ./coverage.out
+          fail_ci_if_error: false
+
+      - name: Build all binaries
+        run: |
+          mkdir -p bin
+          echo "Building binaries..."
+          go build -v -o bin/xianyu_aner ./main.go
+          go build -v -o bin/server ./cmd/server/main.go
+          go build -v -o bin/crawl ./cmd/crawl/main.go
+          echo "Build complete:"
+          ls -lh bin/
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binaries
+          path: bin/
+          retention-days: 7
+
+  # 爬取数据并推送到飞书（使用已编译的二进制）
+  crawl-and-push:
+    name: Crawl and Push to Feishu
+    runs-on: ubuntu-latest
+    needs: build
+    # 仅在定时任务或手动触发时运行
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Playwright browsers
+        run: |
+          go install github.com/playwright-community/playwright-go/cmd/playwright@latest
+          playwright install --with-deps chromium
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: bin/
+
+      - name: Make binaries executable
+        run: chmod +x bin/*
+
+      - name: Run crawl and push to Feishu
+        env:
+          FEISHU_ENABLED: "true"
+          FEISHU_APP_ID: ${{ secrets.FEISHU_APP_ID }}
+          FEISHU_APP_SECRET: ${{ secrets.FEISHU_APP_SECRET }}
+          FEISHU_APP_TOKEN: ${{ secrets.FEISHU_APP_TOKEN }}
+          FEISHU_TABLE_TOKEN: ${{ secrets.FEISHU_TABLE_TOKEN }}
+        run: |
+          ./bin/crawl \
+            -pages=10 \
+            -min-want=1 \
+            -days=14 \
+            -output=feed_result.json \
+            -push-feishu=true \
+            -headless=true
+
+      - name: Upload crawl results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: crawl-results-${{ github.run_number }}
+          path: feed_result.json
+          retention-days: 30
+
+  # 发布版本
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          name: binaries
+          path: bin/
+
+      - name: Create tarball
+        run: |
+          cd bin
+          tar -czf ../xianyu_aner-linux-amd64.tar.gz xianyu_aner server crawl
+          cd ..
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: xianyu_aner-linux-amd64.tar.gz
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
