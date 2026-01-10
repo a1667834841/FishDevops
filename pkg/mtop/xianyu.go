@@ -11,11 +11,11 @@ import (
 // FeedItem 猜你喜欢商品项
 type FeedItem struct {
 	// 基础信息
-	ItemID       string `json:"itemId"`       // 商品ID
-	Title        string `json:"title"`        // 商品标题
-	ImageURL     string `json:"picUrl"`       // 图片链接
-	CategoryID   int `json:"categoryId"`   // 叶子分类ID
-	Location     string `json:"location"`     // 所在城市
+	ItemID     string `json:"itemId"`     // 商品ID
+	Title      string `json:"title"`      // 商品标题
+	ImageURL   string `json:"picUrl"`     // 图片链接
+	CategoryID int    `json:"categoryId"` // 叶子分类ID
+	Location   string `json:"location"`   // 所在城市
 
 	// 价格与行情
 	Price         string `json:"price"`         // 当前售价
@@ -34,12 +34,12 @@ type FeedItem struct {
 	FreeShipping bool   `json:"freeShipping"` // 是否包邮
 
 	// 时间与活跃度
-	PublishTime    string `json:"publishTime"`    // 发布时间
-	PublishTimeTS  int64  `json:"publishTimeTs"`  // 发布时间戳（毫秒）
-	ModifiedTime   string `json:"modifiedTime"`   // 下架/修改时间
-	ModifiedTimeTS int64  `json:"modifiedTimeTs"` // 下架时间戳（毫秒）
-	ProPolishTime  string `json:"proPolishTime"`  // 最近一次擦亮时间
-	ProPolishTimeTS int64 `json:"proPolishTimeTs"` // 擦亮时间戳（毫秒）
+	PublishTime     string `json:"publishTime"`     // 发布时间
+	PublishTimeTS   int64  `json:"publishTimeTs"`   // 发布时间戳（毫秒）
+	ModifiedTime    string `json:"modifiedTime"`    // 下架/修改时间
+	ModifiedTimeTS  int64  `json:"modifiedTimeTs"`  // 下架时间戳（毫秒）
+	ProPolishTime   string `json:"proPolishTime"`   // 最近一次擦亮时间
+	ProPolishTimeTS int64  `json:"proPolishTimeTs"` // 擦亮时间戳（毫秒）
 
 	// 其他字段
 	IsIdle        bool     `json:"isIdle"`        // 是否闲置
@@ -62,10 +62,10 @@ type GuessYouLikeRequest struct {
 
 // GuessYouLikeOptions 获取猜你喜欢的选项
 type GuessYouLikeOptions struct {
-	MaxPages        int   // 最大爬取页数
-	StartPage       int   // 起始页
-	MinWantCount    int   // 最低想要人数（0表示不限制）
-	DaysWithin      int   // 发布时间范围（天数，0表示不限制，默认7天）
+	MaxPages     int // 最大爬取页数
+	StartPage    int // 起始页
+	MinWantCount int // 最低想要人数（0表示不限制）
+	DaysWithin   int // 发布时间范围（天数，0表示不限制，默认7天）
 }
 
 // GuessYouLike 获取猜你喜欢商品列表
@@ -116,8 +116,8 @@ func (c *Client) GuessYouLike(machID string, totalPages int, opts ...GuessYouLik
 
 		// 解析数据 - resp.Data 已经是 data 字段的原始内容
 		var feedData struct {
-			CardList  []json.RawMessage `json:"cardList"`
-			FeedsCount int              `json:"feedsCount"`
+			CardList   []json.RawMessage `json:"cardList"`
+			FeedsCount int               `json:"feedsCount"`
 			NextPage   bool              `json:"nextPage"`
 			ServerTime string            `json:"serverTime"`
 		}
@@ -132,17 +132,17 @@ func (c *Client) GuessYouLike(machID string, totalPages int, opts ...GuessYouLik
 			fmt.Printf("[调试] 解析第 %d 个卡片\n", idx)
 			var card struct {
 				CardData struct {
-					CategoryID  int `json:"categoryId"`
-					Status      string `json:"status"`
-					ViewCount   int    `json:"viewCount"`
+					CategoryID   int    `json:"categoryId"`
+					Status       string `json:"status"`
+					ViewCount    int    `json:"viewCount"`
 					DetailParams struct {
-						ItemID       string `json:"itemId"`
-						PicUrl       string `json:"picUrl"`
-						Title        string `json:"title"`
-						UserNick     string `json:"userNick"`
+						ItemID        string `json:"itemId"`
+						PicUrl        string `json:"picUrl"`
+						Title         string `json:"title"`
+						UserNick      string `json:"userNick"`
 						UserAvatarUrl string `json:"userAvatarUrl"`
-						SoldPrice    string `json:"soldPrice"`
-						IsVideo      string `json:"isVideo"`
+						SoldPrice     string `json:"soldPrice"`
+						IsVideo       string `json:"isVideo"`
 					} `json:"detailParams"`
 					User struct {
 						UserNick string `json:"userNick"`
@@ -160,11 +160,11 @@ func (c *Client) GuessYouLike(machID string, totalPages int, opts ...GuessYouLik
 					Images []struct {
 						Url string `json:"url"`
 					} `json:"images"`
-					RedirectUrl string `json:"redirectUrl"`
-					City        string `json:"city"`
-					ItemId      string `json:"itemId"`
+					RedirectUrl  string            `json:"redirectUrl"`
+					City         string            `json:"city"`
+					ItemId       string            `json:"itemId"`
 					AttributeMap map[string]string `json:"attributeMap"`
-					FishTags    map[string]struct {
+					FishTags     map[string]struct {
 						TagList []struct {
 							Data struct {
 								LabelId string `json:"labelId"`
@@ -188,23 +188,23 @@ func (c *Client) GuessYouLike(machID string, totalPages int, opts ...GuessYouLik
 
 			// 转换为 FeedItem
 			item := FeedItem{
-				ItemID:       card.CardData.DetailParams.ItemID,
-				Title:        card.CardData.DetailParams.Title,
-				Price:        card.CardData.PriceInfo.Price,
+				ItemID:        card.CardData.DetailParams.ItemID,
+				Title:         card.CardData.DetailParams.Title,
+				Price:         card.CardData.PriceInfo.Price,
 				PriceOriginal: card.CardData.PriceInfo.OriPrice,
-				UnitPrice:    card.CardData.UnitPriceInfo.Price,
-				ImageURL:     card.CardData.DetailParams.PicUrl,
-				CategoryID:   card.CardData.CategoryID,
-				Location:     card.CardData.City,
-				SellerNick:   card.CardData.User.UserNick,
-				WantCount:    0,
-				ViewCount:    card.CardData.ViewCount,
-				Status:       card.CardData.Status,
-				IsVideo:      card.CardData.DetailParams.IsVideo == "1",
-				Tags:         []string{},
-				ShopLevel:    "",
-				SellerCredit: "",
-				FreeShipping: false,
+				UnitPrice:     card.CardData.UnitPriceInfo.Price,
+				ImageURL:      card.CardData.DetailParams.PicUrl,
+				CategoryID:    card.CardData.CategoryID,
+				Location:      card.CardData.City,
+				SellerNick:    card.CardData.User.UserNick,
+				WantCount:     0,
+				ViewCount:     card.CardData.ViewCount,
+				Status:        card.CardData.Status,
+				IsVideo:       card.CardData.DetailParams.IsVideo == "1",
+				Tags:          []string{},
+				ShopLevel:     "",
+				SellerCredit:  "",
+				FreeShipping:  false,
 			}
 
 			// 解析想要人数、商品标签、店铺级别、卖家信用等（优先从 fishTags 解析）
@@ -383,7 +383,7 @@ func PrintGuessYouLike(items []FeedItem) {
 
 		// 分类信息
 		if item.CategoryID != 0 {
-			fmt.Printf("    分类ID: %s\n", item.CategoryID)
+			fmt.Printf("    分类ID: %d\n", item.CategoryID)
 		}
 
 		// 时间信息

@@ -62,7 +62,7 @@ func TestIntegrationGuessYouLike(t *testing.T) {
 			t.Logf("第一个商品: %s", item.Title)
 			t.Logf("  ItemID: %s", item.ItemID)
 			t.Logf("  Price: %s", item.Price)
-			t.Logf("  CategoryID: %s", item.CategoryID)
+			t.Logf("  CategoryID: %d", item.CategoryID)
 			t.Logf("  WantCount: %d", item.WantCount)
 			t.Logf("  ViewCount: %d", item.ViewCount)
 			t.Logf("  Status: %s", item.Status)

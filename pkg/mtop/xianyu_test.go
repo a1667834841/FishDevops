@@ -26,16 +26,16 @@ func TestSignatureGeneration(t *testing.T) {
 			wantSign: "", // 实际运行时会计算
 		},
 		{
-			name:     "空数据",
-			token:    "test123",
-			appKey:   "34839810",
-			data:     `{}`,
+			name:   "空数据",
+			token:  "test123",
+			appKey: "34839810",
+			data:   `{}`,
 		},
 		{
-			name:     "复杂数据",
-			token:    "abc123",
-			appKey:   "34839810",
-			data:     `{"itemId":"","pageSize":30,"pageNumber":4,"machId":""}`,
+			name:   "复杂数据",
+			token:  "abc123",
+			appKey: "34839810",
+			data:   `{"itemId":"","pageSize":30,"pageNumber":4,"machId":""}`,
 		},
 	}
 
@@ -198,7 +198,7 @@ func TestMatchFilter(t *testing.T) {
 				DaysWithin:   0,
 			},
 			item: FeedItem{
-				WantCount:    5,
+				WantCount:     5,
 				PublishTimeTS: now.Add(-2 * 24 * time.Hour).UnixMilli(),
 			},
 			want: true,
@@ -210,7 +210,7 @@ func TestMatchFilter(t *testing.T) {
 				DaysWithin:   0,
 			},
 			item: FeedItem{
-				WantCount:    15,
+				WantCount:     15,
 				PublishTimeTS: now.Add(-2 * 24 * time.Hour).UnixMilli(),
 			},
 			want: true,
@@ -222,7 +222,7 @@ func TestMatchFilter(t *testing.T) {
 				DaysWithin:   0,
 			},
 			item: FeedItem{
-				WantCount:    5,
+				WantCount:     5,
 				PublishTimeTS: now.Add(-2 * 24 * time.Hour).UnixMilli(),
 			},
 			want: false,
@@ -234,7 +234,7 @@ func TestMatchFilter(t *testing.T) {
 				DaysWithin:   7,
 			},
 			item: FeedItem{
-				WantCount:    5,
+				WantCount:     5,
 				PublishTimeTS: now.Add(-3 * 24 * time.Hour).UnixMilli(),
 			},
 			want: true,
@@ -246,7 +246,7 @@ func TestMatchFilter(t *testing.T) {
 				DaysWithin:   7,
 			},
 			item: FeedItem{
-				WantCount:    5,
+				WantCount:     5,
 				PublishTimeTS: now.Add(-10 * 24 * time.Hour).UnixMilli(),
 			},
 			want: false,
@@ -258,7 +258,7 @@ func TestMatchFilter(t *testing.T) {
 				DaysWithin:   7,
 			},
 			item: FeedItem{
-				WantCount:    15,
+				WantCount:     15,
 				PublishTimeTS: now.Add(-3 * 24 * time.Hour).UnixMilli(),
 			},
 			want: true,
@@ -270,7 +270,7 @@ func TestMatchFilter(t *testing.T) {
 				DaysWithin:   7,
 			},
 			item: FeedItem{
-				WantCount:    5,
+				WantCount:     5,
 				PublishTimeTS: now.Add(-3 * 24 * time.Hour).UnixMilli(),
 			},
 			want: false,
@@ -282,7 +282,7 @@ func TestMatchFilter(t *testing.T) {
 				DaysWithin:   7,
 			},
 			item: FeedItem{
-				WantCount:    15,
+				WantCount:     15,
 				PublishTimeTS: now.Add(-10 * 24 * time.Hour).UnixMilli(),
 			},
 			want: false,
@@ -463,9 +463,9 @@ func TestGuessYouLike(t *testing.T) {
 					"status":     "online",
 					"viewCount":  150,
 					"detailParams": map[string]interface{}{
-						"itemId": "item123",
-						"picUrl": "https://example.com/image.jpg",
-						"title":  "测试商品",
+						"itemId":  "item123",
+						"picUrl":  "https://example.com/image.jpg",
+						"title":   "测试商品",
 						"isVideo": "1",
 					},
 					"user": map[string]interface{}{
@@ -560,7 +560,7 @@ func TestGuessYouLike(t *testing.T) {
 		t.Errorf("Title = %s, want 测试商品", item.Title)
 	}
 	if item.CategoryID != 50023914 {
-		t.Errorf("CategoryID = %s, want 50023914", item.CategoryID)
+		t.Errorf("CategoryID = %d, want 50023914", item.CategoryID)
 	}
 	if item.Location != "上海" {
 		t.Errorf("Location = %s, want 上海", item.Location)
