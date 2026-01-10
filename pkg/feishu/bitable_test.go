@@ -1,10 +1,7 @@
 package feishu
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -61,75 +58,7 @@ func TestBuildFieldCreates(t *testing.T) {
 	}
 }
 
-// TestGetOrCreateTableByDate_TableExists 测试获取已存在的表格
-func TestGetOrCreateTableByDate_TableExists(t *testing.T) {
-	testDate := time.Date(2026, 1, 11, 0, 0, 0, 0, time.UTC)
-	expectedTableName := "2026-01-11"
-	expectedTableID := "tbl123456"
 
-	// 创建 mock 服务器
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/open-apis/auth/v3/tenant_access_token/internal" {
-			// 返回 token
-			resp := TenantAccessTokenResponse{
-				Code:              0,
-				TenantAccessToken: "test_token",
-				Expire:            7200,
-			}
-			json.NewEncoder(w).Encode(resp)
-		} else if r.URL.Path == "/open-apis/bitable/v1/apps/test_app/tables" {
-			if r.Method == "GET" {
-				// 返回表格列表
-				resp := GetBitableInfoResponse{
-					Code: 0,
-					Data: struct {
-						Tables []struct {
-							TableID string `json:"table_id"`
-							Name    string `json:"name"`
-						} `json:"tables"`
-					}{
-						Tables: []struct {
-							TableID string `json:"table_id"`
-							Name    string `json:"name"`
-						}{
-							{TableID: expectedTableID, Name: expectedTableName},
-							{TableID: "tbl789", Name: "2026-01-10"},
-						},
-					},
-				}
-				json.NewEncoder(w).Encode(resp)
-			}
-		}
-	}))
-	defer server.Close()
-
-	// 创建客户端，使用 mock 服务器的 URL
-	client := &Client{
-		appID:     "test_app",
-		appSecret: "test_secret",
-		httpCli:   &http.Client{},
-		token:     "test_token",
-		tokenExp:  time.Now().Unix() + 3600,
-	}
-
-	// 覆盖 baseURL
-	originalBaseURL := baseURL
-	// 由于 baseURL 是常量，我们需要使用不同的方式来测试
-	// 这里我们通过创建一个自定义的 HTTP 客户端来实现
-	_ = originalBaseURL
-
-	service := &BitableService{
-		client: client,
-		config: BitableConfig{
-			AppToken: "test_app",
-		},
-	}
-
-	// 由于我们无法直接修改 baseURL，这里我们使用接口或集成测试
-	// 这部分测试将在集成测试中完成
-	_ = service
-	_ = testDate
-}
 
 // TestGetTableNameByDate 测试日期转表名
 func TestGetTableNameByDate(t *testing.T) {
