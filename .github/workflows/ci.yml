@@ -10,8 +10,6 @@ on:
     # 每30分钟执行一次（使用 UTC 时间）
     - cron: '*/30 * * * *'
 
-# 设置亚洲/上海时区（UTC+8）
-timezone: Asia/Shanghai
 
 env:
   GO_VERSION: '1.23'
@@ -98,7 +96,7 @@ jobs:
           FEISHU_TABLE_TOKEN: ${{ secrets.FEISHU_TABLE_TOKEN }}
         run: |
           ./bin/crawl \
-            -pages=10 \
+            -pages=15 \
             -min-want=1 \
             -days=14 \
             -output=feed_result.json \
