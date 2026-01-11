@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	mtopsig "xianyu_aner/pkg/mtop"
 )
 
 // Client MTOP API 客户端
@@ -123,7 +124,7 @@ func (c *Client) Do(req Request) (*Response, error) {
 
 	// 生成签名
 	timestamp := fmt.Sprintf("%d", time.Now().UnixMilli())
-	signResult, err := Generate(dataStr, GenerateOptions{
+	signResult, err := mtopsig.Generate(dataStr, mtopsig.GenerateOptions{
 		Token:     c.token,
 		Timestamp: timestamp,
 		AppKey:    c.appKey,

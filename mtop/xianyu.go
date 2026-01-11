@@ -99,7 +99,7 @@ func (c *Client) GuessYouLike(machID string, totalPages int, opts ...GuessYouLik
 		fmt.Printf("[调试] cardList 数量: %d\n", len(feedData.CardList))
 
 		// 解析每个 card
-		for idx, cardBytes := range feedData.CardList {
+		for _, cardBytes := range feedData.CardList {
 			// fmt.Printf("[调试] 解析第 %d 个卡片\n", idx)
 			var card struct {
 				CardData struct {
