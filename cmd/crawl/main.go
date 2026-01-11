@@ -152,6 +152,12 @@ func convertToProducts(items []mtop.FeedItem) []feishu.Product {
 	now := time.Now()
 
 	for _, item := range items {
+		// 检查 itemId 是否为空，为空则跳过
+		if item.ItemID == "" {
+			fmt.Printf("[跳过] 商品 itemId 为空: %s\n", item.Title)
+			continue
+		}
+
 		// 解析价格数值
 		priceNumber := parsePrice(item.Price)
 

@@ -121,6 +121,7 @@ func NewProductWithTimestamps(itemID, title, price, originalPrice string, wantCn
 		Price:         price,
 		OriginalPrice: originalPrice,
 		WantCnt:       wantCnt,
+		PublishTime:   time.Unix(publishTime/1000, 0).Format("2006-01-02 15:04:05"),
 		PublishTimeMs: publishTime,
 		CaptureTime:   now.Format("2006-01-02 15:04:05"),
 		CaptureTimeMs: now.UnixMilli(),

@@ -323,6 +323,24 @@ func (s *BitableService) PushProductsToDateTable(date time.Time, products []Prod
 		if err := s.EnsureTableFields(tableID); err != nil {
 			return nil, fmt.Errorf("确保字段存在失败: %w", err)
 		}
+
+		// 去重：过滤掉已存在的商品
+		products, err = s.DeduplicateProducts(tableID, products)
+		if err != nil {
+			return nil, fmt.Errorf("去重失败: %w", err)
+		}
+		fmt.Printf("[DEBUG] 去重后商品数: %d\n", len(products))
+	}
+
+	// 如果去重后没有数据需要推送，直接返回
+	if len(products) == 0 {
+		fmt.Println("[去重] 所有商品都已存在，无需推送")
+		resp := &PushToBitableResponse{
+			Success: true,
+			Message: "所有商品都已存在",
+		}
+		resp.Data.RecordsCreated = 0
+		return resp, nil
 	}
 
 	// 推送数据
@@ -364,4 +382,97 @@ func (s *BitableService) TableExists(date time.Time) (bool, error) {
 		return false, err
 	}
 	return tableID != "", nil
+}
+
+// ProductKey 商品的唯一标识（用于去重）
+type ProductKey struct {
+	ItemID   string // 商品ID
+	Price    string // 价格
+	WantCnt  int    // 想要人数
+}
+
+// buildProductKey 构建商品唯一标识
+func (s *BitableService) buildProductKey(itemID, price string, wantCnt int) ProductKey {
+	return ProductKey{
+		ItemID:  itemID,
+		Price:   price,
+		WantCnt: wantCnt,
+	}
+}
+
+// extractProductKeyFromRecord 从飞书记录中提取商品唯一标识
+func (s *BitableService) extractProductKeyFromRecord(record map[string]interface{}, fieldNameMapping map[string]string) (ProductKey, error) {
+	// 获取商品ID
+	itemID := ""
+	if v, ok := record[fieldNameMapping["itemId"]]; ok {
+		if str, ok := v.(string); ok {
+			itemID = str
+		}
+	}
+
+	// 获取价格
+	price := ""
+	if v, ok := record[fieldNameMapping["price"]]; ok {
+		if str, ok := v.(string); ok {
+			price = str
+		}
+	}
+
+	// 获取想要人数
+	wantCnt := 0
+	if v, ok := record[fieldNameMapping["wantCnt"]]; ok {
+		switch val := v.(type) {
+		case float64:
+			wantCnt = int(val)
+		case int:
+			wantCnt = val
+		}
+	}
+
+	return ProductKey{
+		ItemID:  itemID,
+		Price:   price,
+		WantCnt: wantCnt,
+	}, nil
+}
+
+// DeduplicateProducts 对商品列表进行去重
+// 基于唯一标识：tableId + itemId + 价格 + 想要人数
+func (s *BitableService) DeduplicateProducts(tableID string, products []Product) ([]Product, error) {
+	// 获取现有记录
+	existingRecords, err := s.client.GetTableRecords(s.config.AppToken, tableID)
+	if err != nil {
+		return nil, fmt.Errorf("获取现有记录失败: %w", err)
+	}
+
+	// 构建已存在记录的 key 集合
+	fieldNameMapping := GetFieldNameMapping()
+	existingKeys := make(map[ProductKey]bool)
+	for _, record := range existingRecords {
+		key, err := s.extractProductKeyFromRecord(record, fieldNameMapping)
+		if err != nil {
+			continue
+		}
+		existingKeys[key] = true
+	}
+
+	// 过滤掉已存在的商品
+	filteredProducts := make([]Product, 0, len(products))
+	duplicateCount := 0
+
+	for _, product := range products {
+		key := s.buildProductKey(product.ItemID, product.Price, product.WantCnt)
+		if !existingKeys[key] {
+			filteredProducts = append(filteredProducts, product)
+			existingKeys[key] = true // 标记为已存在，防止本次推送中重复
+		} else {
+			duplicateCount++
+		}
+	}
+
+	if duplicateCount > 0 {
+		fmt.Printf("[去重] 过滤掉 %d 条重复记录\n", duplicateCount)
+	}
+
+	return filteredProducts, nil
 }

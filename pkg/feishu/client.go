@@ -36,6 +36,7 @@ type FeishuClient interface {
 	CreateField(appToken, tableToken string, field FieldCreate) (string, error)
 	PushToBitable(appToken, tableToken string, products []Product) (*PushToBitableResponse, error)
 	CreateRecord(appToken, tableToken string, product Product) error
+	GetTableRecords(appToken, tableToken string) ([]map[string]interface{}, error)
 }
 
 // ClientConfig 客户端配置
@@ -128,6 +129,15 @@ type CreateRecordsResponse struct {
 
 // PushToBitable 推送数据到飞书多维表格
 func (c *Client) PushToBitable(appToken, tableToken string, products []Product) (*PushToBitableResponse, error) {
+	// 调试日志（脱敏）
+	maskToken := func(s string) string {
+		if len(s) <= 8 {
+			return s
+		}
+		return s[:4] + "..." + s[len(s)-4:]
+	}
+	fmt.Printf("[DEBUG] appToken=%s, tableToken=%s\n", maskToken(appToken), maskToken(tableToken))
+
 	// 获取访问令牌
 	token, err := c.GetTenantAccessToken()
 	if err != nil {
@@ -270,6 +280,7 @@ func (c *Client) PushToBitable(appToken, tableToken string, products []Product) 
 
 	// 发送请求
 	url := fmt.Sprintf(baseURL+bitableBatchPath, appToken, tableToken)
+	fmt.Printf("[DEBUG] API URL: %s\n", url)  // 调试日志
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
@@ -630,4 +641,77 @@ func (c *Client) CreateField(appToken, tableToken string, field FieldCreate) (st
 	}
 
 	return createResp.Data.Field.FieldID, nil
+}
+
+// GetTableRecordsResponse 获取表格记录响应
+type GetTableRecordsResponse struct {
+	Code int `json:"code"`
+	Msg  string `json:"msg"`
+	Data struct {
+		HasMore   bool `json:"has_more"`
+		PageSize  int  `json:"page_size"`
+		PageToken string `json:"page_token"`
+		Total     int  `json:"total"`
+		Items     []struct {
+			RecordID string                 `json:"record_id"`
+			Fields   map[string]interface{} `json:"fields"`
+		} `json:"items"`
+	} `json:"data"`
+}
+
+// GetTableRecords 获取表格中的所有记录（用于去重）
+func (c *Client) GetTableRecords(appToken, tableToken string) ([]map[string]interface{}, error) {
+	token, err := c.GetTenantAccessToken()
+	if err != nil {
+		return nil, fmt.Errorf("获取访问令牌失败: %w", err)
+	}
+
+	var allRecords []map[string]interface{}
+	pageToken := ""
+
+	for {
+		url := fmt.Sprintf(baseURL+"/open-apis/bitable/v1/apps/%s/tables/%s/records?page_size=100", appToken, tableToken)
+		if pageToken != "" {
+			url += "&page_token=" + pageToken
+		}
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("创建请求失败: %w", err)
+		}
+
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		resp, err := c.httpCli.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("请求失败: %w", err)
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("读取响应失败: %w", err)
+		}
+
+		var recordsResp GetTableRecordsResponse
+		if err := json.Unmarshal(body, &recordsResp); err != nil {
+			return nil, fmt.Errorf("解析响应失败: %w", err)
+		}
+
+		if recordsResp.Code != 0 {
+			return nil, fmt.Errorf("获取记录失败: %s", recordsResp.Msg)
+		}
+
+		for _, item := range recordsResp.Data.Items {
+			allRecords = append(allRecords, item.Fields)
+		}
+
+		if !recordsResp.Data.HasMore {
+			break
+		}
+
+		pageToken = recordsResp.Data.PageToken
+	}
+
+	return allRecords, nil
 }

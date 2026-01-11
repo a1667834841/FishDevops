@@ -42,6 +42,8 @@ func TestBuildFieldCreates(t *testing.T) {
 		{"封面URL", FieldTypeURL},
 		{"商品详情URL", FieldTypeURL},
 		{"曝光热度", FieldTypeNumber},
+		{"最近擦亮时间", FieldTypeText},
+		{"擦亮时间戳", FieldTypeDateTime},
 	}
 
 	if len(fields) != len(expectedFields) {
@@ -173,6 +175,11 @@ func (m *MockClient) PushToBitable(appToken, tableToken string, products []Produ
 func (m *MockClient) CreateRecord(appToken, tableToken string, product Product) error {
 	m.pushedRecordsCount = 1
 	return nil
+}
+
+func (m *MockClient) GetTableRecords(appToken, tableToken string) ([]map[string]interface{}, error) {
+	// 返回空记录列表用于测试
+	return []map[string]interface{}{}, nil
 }
 
 // TestBitableService_GetOrCreateTableByDate 测试获取或创建表格
@@ -609,7 +616,7 @@ func TestGetFieldNameMapping(t *testing.T) {
 		{"itemId", "商品ID", true},
 		{"title", "商品标题", true},
 		{"price", "价格", true},
-		{"priceNumber", "价格", true},
+		{"priceNumber", "价格数值", true},
 		{"wantCnt", "想要人数", true},
 		{"publishTime", "发布时间", true},
 		{"sellerNick", "卖家昵称", true},

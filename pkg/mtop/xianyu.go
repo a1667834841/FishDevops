@@ -128,8 +128,8 @@ func (c *Client) GuessYouLike(machID string, totalPages int, opts ...GuessYouLik
 		fmt.Printf("[调试] cardList 数量: %d\n", len(feedData.CardList))
 
 		// 解析每个 card
-		for idx, cardBytes := range feedData.CardList {
-			fmt.Printf("[调试] 解析第 %d 个卡片\n", idx)
+		for _, cardBytes := range feedData.CardList {
+			// fmt.Printf("[调试] 解析第 %d 个卡片\n", idx)
 			var card struct {
 				CardData struct {
 					CategoryID   int    `json:"categoryId"`
@@ -300,14 +300,20 @@ func (c *Client) GuessYouLike(machID string, totalPages int, opts ...GuessYouLik
 				}
 			}
 
-			fmt.Printf("[调试] 解析成功: %s - %s, 店铺: %s, 信用: %s, 包邮: %v\n",
-				item.Title, item.Price, item.ShopLevel, item.SellerCredit, item.FreeShipping)
+			// fmt.Printf("[调试] 解析成功: %s - %s, 店铺: %s, 信用: %s, 包邮: %v\n",
+			// 	item.Title, item.Price, item.ShopLevel, item.SellerCredit, item.FreeShipping)
 
-			// 应用过滤条件
-			if !options.MatchFilter(item) {
-				fmt.Printf("[过滤] 跳过商品: %s (想要:%d, 发布:%s)\n", item.Title, item.WantCount, item.PublishTime)
+			// 检查 itemId 是否为空，为空则跳过
+			if item.ItemID == "" {
+				fmt.Printf("[过滤] 跳过商品: %s (itemId为空)\n", item.Title)
 				continue
 			}
+
+			// // 应用过滤条件
+			// if !options.MatchFilter(item) {
+			// 	fmt.Printf("[过滤] 跳过商品: %s (想要:%d, 发布:%s)\n", item.Title, item.WantCount, item.PublishTime)
+			// 	continue
+			// }
 
 			allItems = append(allItems, item)
 		}
