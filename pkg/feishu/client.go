@@ -130,14 +130,8 @@ type CreateRecordsResponse struct {
 
 // PushToBitable 推送数据到飞书多维表格
 func (c *Client) PushToBitable(appToken, tableToken string, products []Product) (*PushToBitableResponse, error) {
-	// 调试日志（脱敏）
-	maskToken := func(s string) string {
-		if len(s) <= 8 {
-			return s
-		}
-		return s[:4] + "..." + s[len(s)-4:]
-	}
-	fmt.Printf("[DEBUG] appToken=%s, tableToken=%s\n", maskToken(appToken), maskToken(tableToken))
+	
+	// fmt.Printf("[DEBUG] appToken=%s, tableToken=%s\n", maskToken(appToken), maskToken(tableToken))
 
 	// 获取访问令牌
 	token, err := c.GetTenantAccessToken()
@@ -255,10 +249,104 @@ func (c *Client) PushToBitable(appToken, tableToken string, products []Product) 
 			}
 		}
 
+		// ==================== 新增字段 ====================
+
+		// 商品热度指标
+		if fieldName, ok := fieldNameMapping["viewCount"]; ok {
+			if product.ViewCount > 0 {
+				fields[fieldName] = product.ViewCount
+			}
+		}
+		if fieldName, ok := fieldNameMapping["collectCount"]; ok {
+			if product.CollectCount > 0 {
+				fields[fieldName] = product.CollectCount
+			}
+		}
+
+		// 商品属性
+		addField("condition", product.Condition)
+		if fieldName, ok := fieldNameMapping["isNew"]; ok {
+			if product.IsNew {
+				fields[fieldName] = product.IsNew
+			}
+		}
+
+		// 卖家信息
+		addField("sellerId", product.SellerID)
+		addField("sellerCredit", product.SellerCredit)
+		addField("shopLevel", product.ShopLevel)
+		addField("sellerSignature", product.SellerSignature)
+		if fieldName, ok := fieldNameMapping["sellerRegDays"]; ok {
+			if product.SellerRegDays > 0 {
+				fields[fieldName] = product.SellerRegDays
+			}
+		}
+		if fieldName, ok := fieldNameMapping["sellerItemCount"]; ok {
+			if product.SellerItemCount > 0 {
+				fields[fieldName] = product.SellerItemCount
+			}
+		}
+		if fieldName, ok := fieldNameMapping["sellerSoldCount"]; ok {
+			if product.SellerSoldCount > 0 {
+				fields[fieldName] = product.SellerSoldCount
+			}
+		}
+
+		// 商品描述
+		addField("description", product.Description)
+		addField("desc", product.Desc)
+		addField("subTitle", product.SubTitle)
+
+		// 媒体资源 - 视频URL
+		if fieldName, ok := fieldNameMapping["videoUrl"]; ok {
+			if product.VideoURL != "" {
+				fields[fieldName] = map[string]string{"link": product.VideoURL}
+			}
+		}
+
+		// 分类信息
+		if fieldName, ok := fieldNameMapping["categoryId"]; ok {
+			if product.CategoryID > 0 {
+				fields[fieldName] = product.CategoryID
+			}
+		}
+
+		// 商品状态
+		addField("status", product.Status)
+		if fieldName, ok := fieldNameMapping["itemStatus"]; ok {
+			if product.ItemStatus > 0 {
+				fields[fieldName] = product.ItemStatus
+			}
+		}
+		addField("itemStatusStr", product.ItemStatusStr)
+
+		// 数组字段（JSON格式）
+		addField("imageListJson", product.ImageListJSON)
+		addField("skuListJson", product.SKUListJSON)
+		addField("cpvLabelsJson", product.CPVLabelsJSON)
+		addField("itemTagsJson", product.ItemTagsJSON)
+
+		// 其他
+		if fieldName, ok := fieldNameMapping["hasSku"]; ok {
+			if product.HasSKU {
+				fields[fieldName] = product.HasSKU
+			}
+		}
+		if fieldName, ok := fieldNameMapping["totalStock"]; ok {
+			if product.TotalStock > 0 {
+				fields[fieldName] = product.TotalStock
+			}
+		}
+		if fieldName, ok := fieldNameMapping["priceInCent"]; ok {
+			if product.PriceInCent > 0 {
+				fields[fieldName] = product.PriceInCent
+			}
+		}
+
 		// 调试日志：打印第一个商品的详细信息
 		if i == 0 {
-			fmt.Printf("[DEBUG] 商品数据: ID=%s, Title=%s\n", product.ItemID, product.Title)
-			fmt.Printf("[DEBUG] 字段数据 (数量=%d):\n", len(fields))
+			// fmt.Printf("[DEBUG] 商品数据: ID=%s, Title=%s\n", product.ItemID, product.Title)
+			// fmt.Printf("[DEBUG] 字段数据 (数量=%d):\n", len(fields))
 			for k, v := range fields {
 				fmt.Printf("  %s: %v (type: %T)\n", k, v, v)
 			}
@@ -277,11 +365,11 @@ func (c *Client) PushToBitable(appToken, tableToken string, products []Product) 
 	}
 
 	// 打印请求体（调试用）
-	fmt.Printf("[DEBUG] 请求体: %s\n", string(jsonData))
+	// fmt.Printf("[DEBUG] 请求体: %s\n", string(jsonData))
 
 	// 发送请求
 	url := fmt.Sprintf(baseURL+bitableBatchPath, appToken, tableToken)
-	fmt.Printf("[DEBUG] API URL: %s\n", url) // 调试日志
+	// fmt.Printf("[DEBUG] API URL: %s\n", url) // 调试日志
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)

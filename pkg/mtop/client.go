@@ -191,14 +191,14 @@ func (c *Client) Do(req Request) (*Response, error) {
 	}
 
 	// 打印调试信息
-	fmt.Printf("\n[调试] 请求URL: %s\n", httpRequest.URL.String())
-	fmt.Printf("[调试] 请求Body: %s\n", formData.Encode())
+	// fmt.Printf("\n[调试] 请求URL: %s\n", httpRequest.URL.String())
+	// fmt.Printf("[调试] 请求Body: %s\n", formData.Encode())
 	// 打印关键 Cookie
-	fmt.Printf("[调试] 发送的 Cookie 数量: %d\n", len(c.cookies))
+	// fmt.Printf("[调试] 发送的 Cookie 数量: %d\n", len(c.cookies))
 	for _, cookie := range c.cookies {
 		if cookie.Name == "_m_h5_tk" || cookie.Name == "_m_h5_tk_enc" ||
 		   cookie.Name == "cookie2" || cookie.Name == "cna" || cookie.Name == "unb" {
-			fmt.Printf("[调试]   %s: %s\n", cookie.Name, maskCookieValue(cookie.Value))
+			// fmt.Printf("[调试]   %s: %s\n", cookie.Name, maskCookieValue(cookie.Value))
 		}
 	}
 
@@ -216,7 +216,7 @@ func (c *Client) Do(req Request) (*Response, error) {
 	}
 
 	// 打印调试信息
-	fmt.Printf("\n[调试] API响应: status=%d, body=%s\n", resp.StatusCode, string(body))
+	// fmt.Printf("\n[调试] API响应: status=%d, body=%s\n", resp.StatusCode, string(body))
 
 	// 解析响应
 	var result Response

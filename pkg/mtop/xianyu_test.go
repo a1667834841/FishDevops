@@ -324,9 +324,7 @@ func TestFeedItemFields(t *testing.T) {
 		Location:   "上海",
 
 		// 价格与行情
-		Price:         "100.00",
-		PriceOriginal: "150.00",
-		UnitPrice:     "10.00/斤",
+		Price: "100.00",
 
 		// 热度与流量
 		WantCount: 25,
@@ -571,12 +569,6 @@ func TestGuessYouLike(t *testing.T) {
 	if item.Price != "100.00" {
 		t.Errorf("Price = %s, want 100.00", item.Price)
 	}
-	if item.PriceOriginal != "150.00" {
-		t.Errorf("PriceOriginal = %s, want 150.00", item.PriceOriginal)
-	}
-	if item.UnitPrice != "10.00" {
-		t.Errorf("UnitPrice = %s, want 10.00", item.UnitPrice)
-	}
 
 	// 验证热度字段
 	if item.WantCount != 25 {
@@ -803,59 +795,50 @@ func contains(slice []string, item string) bool {
 
 // TestFetchItemDetail 测试获取商品详情
 func TestFetchItemDetail(t *testing.T) {
-	// 创建模拟响应数据
+	// 创建模拟响应数据 - 匹配实际 API 返回结构 (itemDO + sellerDO)
 	mockDetailData := map[string]interface{}{
-		"item": map[string]interface{}{
-			"id":         "test_item_id_123",
-			"itemId":     "item123",
-			"title":      "测试商品标题",
-			"subTitle":   "这是副标题",
-			"desc":       "这是商品简述",
-			"picUrl":     "https://example.com/image.jpg",
-			"videoUrl":   "https://example.com/video.mp4",
-			"categoryId": 50023914,
-			"price":      "100.00",
-			"oriPrice":   "150.00",
-			"unitPrice":  "10.00/斤",
-			"seller": map[string]interface{}{
-				"id":       "seller123",
-				"userNick": "测试卖家",
-				"avatarUrl": "https://example.com/avatar.jpg",
-				"encGid":   "enc123",
-				"havannaId": "havanna123",
+		"itemDO": map[string]interface{}{
+			"itemId":        int64(123), // API 返回的是数字
+			"title":         "测试商品标题",
+			"desc":          "这是商品简述",
+			"categoryId":    50023914,
+			"soldPrice":     "100.00",
+			"priceUnit":     "元",
+			"itemStatus":    0,
+			"itemStatusStr": "online",
+			"wantCnt":       25,
+			"browseCnt":     150,
+			"collectCnt":    10,
+			"gmtCreate":     int64(1736476800000),
+			"quantity":      5,
+			"imageInfos": []map[string]interface{}{
+				{"url": "https://example.com/img1.jpg", "major": true, "widthSize": 800, "heightSize": 600},
+				{"url": "https://example.com/img2.jpg", "major": false, "widthSize": 800, "heightSize": 600},
+				{"url": "https://example.com/img3.jpg", "major": false, "widthSize": 800, "heightSize": 600},
 			},
-			"status":        "online",
-			"wantCount":     25,
-			"viewCount":     150,
-			"collectCount":  10,
-			"chatCount":     5,
-			"location": map[string]interface{}{
-				"text":     "上海 浦东新区",
-				"province": "上海",
-				"city":     "上海",
-				"area":     "浦东新区",
+			"cpvLabels": []map[string]interface{}{
+				{"propertyId": int64(1), "propertyName": "成色", "valueId": int64(1), "valueName": "95新"},
 			},
-			"publishTime":    "2026-01-10 10:30:00",
-			"publishTimeTs":  1736476800000,
-			"modifiedTime":   "2026-01-11 15:20:00",
-			"modifiedTimeTs": 1736587200000,
-			"condition":      "95新",
-			"isNew":          false,
-			"freeShipping":   true,
-			"images": []map[string]string{
-				{"url": "https://example.com/img1.jpg"},
-				{"url": "https://example.com/img2.jpg"},
-				{"url": "https://example.com/img3.jpg"},
+			"commonTags": []map[string]interface{}{
+				{"text": "包邮"},
+				{"text": "验货宝"},
 			},
-			"description": map[string]interface{}{
-				"content": "这是商品的详细描述内容\n包含多行文本",
-			},
-			"tags": []map[string]interface{}{
-				{"labelId": "1", "type": "text", "content": "包邮"},
-				{"labelId": "2", "type": "text", "content": "验货宝"},
-			},
-			"shopInfo": map[string]interface{}{
-				"level": "level5",
+			"transportFee": "0",
+		},
+		"sellerDO": map[string]interface{}{
+			"sellerId":          int64(456),
+			"nick":              "测试卖家",
+			"uniqueName":        "seller123",
+			"city":              "上海",
+			"portraitUrl":       "https://example.com/avatar.jpg",
+			"signature":         "欢迎选购",
+			"itemCount":         10,
+			"hasSoldNumInteger": 50,
+			"userRegDay":        365,
+			"zhimaAuth":         true,
+			"zhumaLevelInfo": map[string]interface{}{
+				"levelCode": "excellent",
+				"levelName": "信用极好",
 			},
 		},
 	}
@@ -895,14 +878,11 @@ func TestFetchItemDetail(t *testing.T) {
 	}
 
 	// 验证基础字段
-	if detail.ItemID != "item123" {
-		t.Errorf("ItemID = %s, want item123", detail.ItemID)
+	if detail.ItemID != "123" {
+		t.Errorf("ItemID = %s, want 123", detail.ItemID)
 	}
 	if detail.Title != "测试商品标题" {
 		t.Errorf("Title = %s, want 测试商品标题", detail.Title)
-	}
-	if detail.SubTitle != "这是副标题" {
-		t.Errorf("SubTitle = %s, want 这是副标题", detail.SubTitle)
 	}
 	if detail.Desc != "这是商品简述" {
 		t.Errorf("Desc = %s, want 这是商品简述", detail.Desc)
@@ -915,22 +895,31 @@ func TestFetchItemDetail(t *testing.T) {
 	if detail.Price != "100.00" {
 		t.Errorf("Price = %s, want 100.00", detail.Price)
 	}
-	if detail.PriceOriginal != "150.00" {
-		t.Errorf("PriceOriginal = %s, want 150.00", detail.PriceOriginal)
-	}
-	if detail.UnitPrice != "10.00/斤" {
-		t.Errorf("UnitPrice = %s, want 10.00/斤", detail.UnitPrice)
+	if detail.SoldPrice != "100.00" {
+		t.Errorf("SoldPrice = %s, want 100.00", detail.SoldPrice)
 	}
 
 	// 验证卖家字段
-	if detail.SellerID != "seller123" {
-		t.Errorf("SellerID = %s, want seller123", detail.SellerID)
+	if detail.SellerID != "456" {
+		t.Errorf("SellerID = %s, want 456", detail.SellerID)
 	}
 	if detail.SellerNick != "测试卖家" {
 		t.Errorf("SellerNick = %s, want 测试卖家", detail.SellerNick)
 	}
 	if detail.AvatarURL != "https://example.com/avatar.jpg" {
 		t.Errorf("AvatarURL = %s, want https://example.com/avatar.jpg", detail.AvatarURL)
+	}
+	if detail.SellerCredit != "信用极好" {
+		t.Errorf("SellerCredit = %s, want 信用极好", detail.SellerCredit)
+	}
+	if detail.SellerRegDays != 365 {
+		t.Errorf("SellerRegDays = %d, want 365", detail.SellerRegDays)
+	}
+	if detail.SellerItemCount != 10 {
+		t.Errorf("SellerItemCount = %d, want 10", detail.SellerItemCount)
+	}
+	if detail.SellerSoldCount != 50 {
+		t.Errorf("SellerSoldCount = %d, want 50", detail.SellerSoldCount)
 	}
 
 	// 验证状态字段
@@ -946,30 +935,19 @@ func TestFetchItemDetail(t *testing.T) {
 	if detail.CollectCount != 10 {
 		t.Errorf("CollectCount = %d, want 10", detail.CollectCount)
 	}
-	if detail.ChatCount != 5 {
-		t.Errorf("ChatCount = %d, want 5", detail.ChatCount)
-	}
 
-	// 验证地址字段
-	if detail.Location != "上海 浦东新区" {
-		t.Errorf("Location = %s, want 上海 浦东新区", detail.Location)
-	}
-	if detail.Area != "浦东新区" {
-		t.Errorf("Area = %s, want 浦东新区", detail.Area)
+	// 验证地址字段 (从 sellerDO.city 获取)
+	if detail.Location != "上海" {
+		t.Errorf("Location = %s, want 上海", detail.Location)
 	}
 
 	// 验证时间字段
-	if detail.PublishTime != "2026-01-10 10:30:00" {
-		t.Errorf("PublishTime = %s, want 2026-01-10 10:30:00", detail.PublishTime)
-	}
 	if detail.PublishTimeTS != 1736476800000 {
 		t.Errorf("PublishTimeTS = %d, want 1736476800000", detail.PublishTimeTS)
 	}
-	if detail.ModifiedTime != "2026-01-11 15:20:00" {
-		t.Errorf("ModifiedTime = %s, want 2026-01-11 15:20:00", detail.ModifiedTime)
-	}
-	if detail.ModifiedTimeTS != 1736587200000 {
-		t.Errorf("ModifiedTimeTS = %d, want 1736587200000", detail.ModifiedTimeTS)
+	// PublishTime 从时间戳转换，验证格式正确即可
+	if detail.PublishTime == "" {
+		t.Error("PublishTime should not be empty")
 	}
 
 	// 验证商品属性
@@ -983,6 +961,11 @@ func TestFetchItemDetail(t *testing.T) {
 		t.Error("FreeShipping = false, want true")
 	}
 
+	// 验证库存
+	if detail.TotalStock != 5 {
+		t.Errorf("TotalStock = %d, want 5", detail.TotalStock)
+	}
+
 	// 验证图片列表
 	if len(detail.ImageList) != 3 {
 		t.Fatalf("ImageList length = %d, want 3", len(detail.ImageList))
@@ -990,13 +973,17 @@ func TestFetchItemDetail(t *testing.T) {
 	if detail.ImageList[0] != "https://example.com/img1.jpg" {
 		t.Errorf("ImageList[0] = %s, want https://example.com/img1.jpg", detail.ImageList[0])
 	}
-
-	// 验证描述
-	if detail.Description != "这是商品的详细描述内容\n包含多行文本" {
-		t.Errorf("Description = %s, want 这是商品的详细描述内容\\n包含多行文本", detail.Description)
+	// 验证主图 (major=true)
+	if detail.ImageURL != "https://example.com/img1.jpg" {
+		t.Errorf("ImageURL = %s, want https://example.com/img1.jpg", detail.ImageURL)
 	}
 
-	// 验证标签
+	// 验证描述 (从 desc 字段获取)
+	if detail.Description != "这是商品简述" {
+		t.Errorf("Description = %s, want 这是商品简述", detail.Description)
+	}
+
+	// 验证标签 (从 commonTags 获取)
 	if len(detail.Tags) != 2 {
 		t.Fatalf("Tags length = %d, want 2", len(detail.Tags))
 	}
@@ -1007,9 +994,12 @@ func TestFetchItemDetail(t *testing.T) {
 		t.Error("Tags should contain '验货宝'")
 	}
 
-	// 验证店铺级别
-	if detail.ShopLevel != "level5" {
-		t.Errorf("ShopLevel = %s, want level5", detail.ShopLevel)
+	// 验证 CPV 属性标签
+	if len(detail.CPVLabels) != 1 {
+		t.Fatalf("CPVLabels length = %d, want 1", len(detail.CPVLabels))
+	}
+	if detail.CPVLabels[0].PropertyName != "成色" {
+		t.Errorf("CPVLabels[0].PropertyName = %s, want 成色", detail.CPVLabels[0].PropertyName)
 	}
 }
 
@@ -1058,24 +1048,21 @@ func TestFetchItemDetailWithErrorStatus(t *testing.T) {
 
 // TestFetchItemDetailMinimalData 测试最小数据响应
 func TestFetchItemDetailMinimalData(t *testing.T) {
-	// 最小必需数据的响应
+	// 最小必需数据的响应 - 匹配实际 API 返回结构
 	mockDetailData := map[string]interface{}{
-		"item": map[string]interface{}{
-			"itemId":  "minimal123",
-			"title":   "最小商品",
-			"price":   "50.00",
-			"status":  "online",
-			"seller": map[string]interface{}{
-				"id":       "seller456",
-				"userNick": "卖家456",
-			},
-			"location": map[string]interface{}{
-				"text": "北京",
-			},
-			"images":       []map[string]string{},
-			"description":  map[string]string{"content": ""},
-			"tags":        []map[string]interface{}{},
-			"shopInfo":    map[string]interface{}{},
+		"itemDO": map[string]interface{}{
+			"itemId":        int64(789),
+			"title":         "最小商品",
+			"soldPrice":     "50.00",
+			"itemStatusStr": "online",
+			"imageInfos":    []map[string]interface{}{},
+			"commonTags":    []map[string]interface{}{},
+			"cpvLabels":     []map[string]interface{}{},
+		},
+		"sellerDO": map[string]interface{}{
+			"sellerId": int64(456),
+			"nick":     "卖家456",
+			"city":     "北京",
 		},
 	}
 
@@ -1100,8 +1087,8 @@ func TestFetchItemDetailMinimalData(t *testing.T) {
 	}
 
 	// 验证最小字段
-	if detail.ItemID != "minimal123" {
-		t.Errorf("ItemID = %s, want minimal123", detail.ItemID)
+	if detail.ItemID != "789" {
+		t.Errorf("ItemID = %s, want 789", detail.ItemID)
 	}
 	if detail.Title != "最小商品" {
 		t.Errorf("Title = %s, want 最小商品", detail.Title)
@@ -1111,6 +1098,9 @@ func TestFetchItemDetailMinimalData(t *testing.T) {
 	}
 	if detail.SellerNick != "卖家456" {
 		t.Errorf("SellerNick = %s, want 卖家456", detail.SellerNick)
+	}
+	if detail.Location != "北京" {
+		t.Errorf("Location = %s, want 北京", detail.Location)
 	}
 
 	// 验证空切片

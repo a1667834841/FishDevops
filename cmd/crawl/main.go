@@ -93,7 +93,7 @@ func main() {
 	// 步骤4: 推送到飞书（可选）
 	if *pushFeishu {
 		fmt.Printf("\n[步骤 4/4] 推送到飞书多维表格...\n")
-		if err := pushToFeishu(cfg, items); err != nil {
+		if err := pushToFeishu(cfg, client, items); err != nil {
 			log.Printf("推送失败: %v", err)
 		}
 	} else {
@@ -110,7 +110,7 @@ func main() {
 }
 
 // pushToFeishu 推送数据到飞书
-func pushToFeishu(cfg config.Config, items []mtop.FeedItem) error {
+func pushToFeishu(cfg config.Config, client *mtop.Client, items []mtop.FeedItem) error {
 	// if !cfg.Feishu.Enabled {
 	// 	return fmt.Errorf("飞书功能未启用")
 	// }
@@ -132,8 +132,8 @@ func pushToFeishu(cfg config.Config, items []mtop.FeedItem) error {
 	}
 	bitableService := feishu.NewBitableService(fsClient, bitableConfig)
 
-	// 转换数据
-	products := convertToProducts(items)
+	// 转换数据（传入 client 参数）
+	products := convertToProducts(client, items)
 	fmt.Printf("成功转换 %d 条数据\n", len(products))
 
 	// 推送到今天的表格
@@ -146,61 +146,190 @@ func pushToFeishu(cfg config.Config, items []mtop.FeedItem) error {
 	return nil
 }
 
-// convertToProducts 将 FeedItem 转换为 Product
-func convertToProducts(items []mtop.FeedItem) []feishu.Product {
+// convertToProducts 将 FeedItem 转换为 Product（通过商品详情接口补充完整信息）
+func convertToProducts(client *mtop.Client, items []mtop.FeedItem) []feishu.Product {
 	products := make([]feishu.Product, 0, len(items))
 	now := time.Now()
+	detailSuccessCount := 0
+	detailFailCount := 0
+	fallbackCount := 0
 
-	for _, item := range items {
-		// 检查 itemId 是否为空，为空则跳过
+	fmt.Printf("\n[开始] 获取商品详情，共 %d 个商品...\n", len(items))
+
+	for i, item := range items {
+		// 检查 itemId 是否为空
 		if item.ItemID == "" {
-			fmt.Printf("[跳过] 商品 itemId 为空: %s\n", item.Title)
+			fmt.Printf("[跳过 %d/%d] 商品 itemId 为空: %s\n", i+1, len(items), truncateString(item.Title, 30))
+			detailFailCount++
 			continue
 		}
 
-		// 解析价格数值
-		priceNumber := parsePrice(item.Price)
+		fmt.Printf("[处理 %d/%d] 正在获取商品详情: %s (ID: %s)...\n",
+			i+1, len(items), truncateString(item.Title, 30), item.ItemID)
 
-		// 构建标签字符串
-		tagsStr := strings.Join(item.Tags, ", ")
+		// 串行调用商品详情接口
+		detail, err := client.FetchItemDetail(item.ItemID)
+		if err != nil {
+			fmt.Printf("[降级 %d/%d] 获取商品详情失败，使用猜你喜欢数据: %v\n", i+1, len(items), err)
+			detailFailCount++
+			fallbackCount++
 
-		// 判断是否包邮
-		freeShip := "否"
-		for _, tag := range item.Tags {
-			if tag == "包邮" {
-				freeShip = "是"
-				break
-			}
+			// Fallback: 使用 FeedItem 原始数据
+			product := convertFeedItemToProduct(item, now)
+			products = append(products, product)
+		} else {
+			// 转换 ItemDetail 到 Product
+			product := convertItemDetailToProduct(detail, now)
+			products = append(products, product)
+			detailSuccessCount++
+
+			fmt.Printf("[成功 %d/%d] ✓ %s - ¥%s (想要:%d, 浏览:%d)\n",
+				i+1, len(items), truncateString(detail.Title, 20),
+				detail.Price, detail.WantCount, detail.ViewCount)
 		}
-
-		// 构建商品详情URL
-		detailURL := fmt.Sprintf("https://2.taobao.com/item.htm?id=%s", item.ItemID)
-
-		product := feishu.Product{
-			ItemID:              item.ItemID,
-			Title:               item.Title,
-			Price:               item.Price,
-			PriceNumber:         priceNumber,
-			OriginalPrice:       item.PriceOriginal,
-			OriginalPriceNumber: parsePrice(item.PriceOriginal),
-			WantCnt:             item.WantCount,
-			PublishTime:         item.PublishTime,
-			PublishTimeMs:       item.PublishTimeTS,
-			CaptureTime:         now.Format("2006-01-02 15:04:05"),
-			CaptureTimeMs:       now.UnixMilli(),
-			SellerCity:          item.Location,
-			FreeShip:            freeShip,
-			Tags:                tagsStr,
-			CoverURL:            item.ImageURL,
-			DetailURL:           detailURL,
-			ProPolishTime:       item.ProPolishTime,
-			ProPolishTimeMs:     item.ProPolishTimeTS,
-		}
-
-		products = append(products, product)
 	}
 
+	fmt.Printf("\n[完成] 详情成功: %d, 降级使用猜你喜欢: %d, 跳过: %d, 总计: %d\n",
+		detailSuccessCount, fallbackCount, detailFailCount-fallbackCount, len(items))
+
 	return products
+}
+
+// convertFeedItemToProduct 将 FeedItem 转换为 Product（Fallback 机制）
+func convertFeedItemToProduct(item mtop.FeedItem, captureTime time.Time) feishu.Product {
+	// 构建标签字符串
+	tagsStr := strings.Join(item.Tags, ", ")
+
+	// 包邮判断
+	freeShip := "否"
+	for _, tag := range item.Tags {
+		if tag == "包邮" {
+			freeShip = "是"
+			break
+		}
+	}
+
+	// 构建商品详情URL
+	detailURL := fmt.Sprintf("https://2.taobao.com/item.htm?id=%s", item.ItemID)
+
+	// 解析价格数值
+	priceNumber := parsePrice(item.Price)
+
+	return feishu.Product{
+		// 基础字段（来自 FeedItem）
+		ItemID:        item.ItemID,
+		Title:         item.Title,
+		Price:         item.Price,
+		PriceNumber:   priceNumber,
+		WantCnt:       item.WantCount,
+		PublishTime:   item.PublishTime,
+		PublishTimeMs: item.PublishTimeTS,
+		CaptureTime:   captureTime.Format("2006-01-02 15:04:05"),
+		CaptureTimeMs: captureTime.UnixMilli(),
+		SellerCity:    item.Location,
+		FreeShip:      freeShip,
+		Tags:          tagsStr,
+		CoverURL:      item.ImageURL,
+		DetailURL:     detailURL,
+
+		// 以下字段在 FeedItem 中不可用，留空
+		// 新增字段（FeedItem 中不可用，留空）
+	}
+}
+
+// convertItemDetailToProduct 将 ItemDetail 转换为 Product
+func convertItemDetailToProduct(detail *mtop.ItemDetail, captureTime time.Time) feishu.Product {
+	// 数组字段转 JSON
+	imageListJSON, _ := json.Marshal(detail.ImageList)
+	skuListJSON, _ := json.Marshal(detail.SKUList)
+	cpvLabelsJSON, _ := json.Marshal(detail.CPVLabels)
+	itemTagsJSON, _ := json.Marshal(detail.ItemTags)
+
+	// 标签数组转字符串
+	tagsStr := strings.Join(detail.Tags, ", ")
+
+	// 包邮判断
+	freeShip := "否"
+	if detail.FreeShipping {
+		freeShip = "是"
+	}
+
+	// 构建商品详情URL
+	detailURL := fmt.Sprintf("https://2.taobao.com/item.htm?id=%s", detail.ItemID)
+
+	// 解析价格数值
+	priceNumber := parsePrice(detail.Price)
+
+	return feishu.Product{
+		// 现有字段
+		ItemID:        detail.ItemID,
+		Title:         detail.Title,
+		Price:         detail.Price,
+		PriceNumber:   priceNumber,
+		WantCnt:       detail.WantCount,
+		PublishTime:   detail.PublishTime,
+		PublishTimeMs: detail.PublishTimeTS,
+		CaptureTime:   captureTime.Format("2006-01-02 15:04:05"),
+		CaptureTimeMs: captureTime.UnixMilli(),
+		SellerNick:    detail.SellerNick,
+		SellerCity:    detail.SellerCity,
+		FreeShip:      freeShip,
+		Tags:          tagsStr,
+		CoverURL:      detail.ImageURL,
+		DetailURL:     detailURL,
+
+		// 新增：热度指标
+		ViewCount:    detail.ViewCount,
+		CollectCount: detail.CollectCount,
+
+		// 新增：商品属性
+		Condition: detail.Condition,
+		IsNew:     detail.IsNew,
+
+		// 新增：卖家信息
+		SellerID:        detail.SellerID,
+		SellerCredit:    detail.SellerCredit,
+		ShopLevel:       detail.ShopLevel,
+		SellerRegDays:   detail.SellerRegDays,
+		SellerItemCount: detail.SellerItemCount,
+		SellerSoldCount: detail.SellerSoldCount,
+		SellerSignature: detail.SellerSignature,
+
+		// 新增：商品描述
+		Description: detail.Description,
+		Desc:        detail.Desc,
+		SubTitle:    detail.SubTitle,
+
+		// 新增：媒体资源
+		VideoURL: detail.VideoURL,
+
+		// 新增：分类信息
+		CategoryID: detail.CategoryID,
+
+		// 新增：商品状态
+		Status:        detail.Status,
+		ItemStatus:    detail.ItemStatus,
+		ItemStatusStr: detail.ItemStatusStr,
+
+		// 新增：数组字段（JSON格式）
+		ImageListJSON: string(imageListJSON),
+		SKUListJSON:   string(skuListJSON),
+		CPVLabelsJSON: string(cpvLabelsJSON),
+		ItemTagsJSON:  string(itemTagsJSON),
+
+		// 新增：其他
+		HasSKU:     detail.HasSKU,
+		TotalStock: detail.TotalStock,
+		PriceInCent: detail.PriceInCent,
+	}
+}
+
+// truncateString 截断字符串
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
 }
 
 // parsePrice 从价格字符串解析数值

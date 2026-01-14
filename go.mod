@@ -2,7 +2,6 @@ module xianyu_aner
 
 go 1.23.0
 
-toolchain go1.24.11
 
 require (
 	github.com/gin-contrib/cors v1.7.6

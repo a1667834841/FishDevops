@@ -467,11 +467,11 @@ func TestIntegrationFetchItemDetail(t *testing.T) {
 
 	t.Logf("\n【价格信息】")
 	t.Logf("  售价: %s", detail.Price)
-	if detail.PriceOriginal != "" {
-		t.Logf("  原价: %s", detail.PriceOriginal)
+	if detail.SoldPrice != "" {
+		t.Logf("  原始价格: %s", detail.SoldPrice)
 	}
-	if detail.UnitPrice != "" {
-		t.Logf("  单价: %s", detail.UnitPrice)
+	if detail.PriceInCent > 0 {
+		t.Logf("  价格(分): %d", detail.PriceInCent)
 	}
 
 	t.Logf("\n【卖家信息】")
@@ -495,15 +495,12 @@ func TestIntegrationFetchItemDetail(t *testing.T) {
 	if detail.CollectCount > 0 {
 		t.Logf("  收藏次数: %d", detail.CollectCount)
 	}
-	if detail.ChatCount > 0 {
-		t.Logf("  咨询次数: %d", detail.ChatCount)
-	}
 
 	if detail.Location != "" {
 		t.Logf("\n【地址信息】")
 		t.Logf("  位置: %s", detail.Location)
-		if detail.Area != "" {
-			t.Logf("  区域: %s", detail.Area)
+		if detail.SellerCity != "" {
+			t.Logf("  卖家城市: %s", detail.SellerCity)
 		}
 	}
 
@@ -523,8 +520,8 @@ func TestIntegrationFetchItemDetail(t *testing.T) {
 	if detail.PublishTime != "" {
 		t.Logf("\n【时间信息】")
 		t.Logf("  发布时间: %s", detail.PublishTime)
-		if detail.ModifiedTime != "" {
-			t.Logf("  修改时间: %s", detail.ModifiedTime)
+		if detail.PublishTimeTS > 0 {
+			t.Logf("  发布时间戳: %d", detail.PublishTimeTS)
 		}
 	}
 
@@ -681,7 +678,6 @@ func TestIntegrationFetchItemDetail(t *testing.T) {
 	t.Log("\n【步骤8】数据分析字段报告...")
 	AnalyzeItemDetailForDataAnalysis(detail)
 }
-
 
 // formatTags 格式化标签列表
 func formatTags(tags []string) string {

@@ -7,5 +7,9 @@
     "deny": [],
     "ask": []
   },
-  "enabledMcpjsonServers": ["adb"]
+  "enabledMcpjsonServers": [
+    "adb",
+    "chrome-devtools"
+  ],
+  "enableAllProjectMcpServers": true
 }

@@ -30,6 +30,7 @@ var ProductFields = []struct {
 	Schema   FieldSchema
 	CSVOrder int // CSV 导出顺序，0 表示不导出
 }{
+	// ==================== 现有字段 ====================
 	{"itemId", FieldSchema{Type: FieldTypeText, Label: "商品ID"}, 1},
 	{"title", FieldSchema{Type: FieldTypeText, Label: "商品标题"}, 2},
 	{"price", FieldSchema{Type: FieldTypeText, Label: "价格"}, 3},
@@ -50,10 +51,57 @@ var ProductFields = []struct {
 	{"exposureHeat", FieldSchema{Type: FieldTypeNumber, Label: "曝光热度"}, 0},
 	{"proPolishTime", FieldSchema{Type: FieldTypeText, Label: "最近擦亮时间"}, 13},
 	{"proPolishTimeMs", FieldSchema{Type: FieldTypeDateTime, Label: "擦亮时间戳"}, 0},
+
+	// ==================== 新增字段 ====================
+
+	// 商品热度指标
+	{"viewCount", FieldSchema{Type: FieldTypeNumber, Label: "浏览次数"}, 0},
+	{"collectCount", FieldSchema{Type: FieldTypeNumber, Label: "收藏次数"}, 0},
+
+	// 商品属性
+	{"condition", FieldSchema{Type: FieldTypeText, Label: "成色"}, 0},
+	{"isNew", FieldSchema{Type: FieldTypeCheckbox, Label: "是否全新"}, 0},
+
+	// 卖家信息
+	{"sellerId", FieldSchema{Type: FieldTypeText, Label: "卖家ID"}, 0},
+	{"sellerCredit", FieldSchema{Type: FieldTypeText, Label: "卖家芝麻信用"}, 0},
+	{"shopLevel", FieldSchema{Type: FieldTypeText, Label: "店铺级别"}, 0},
+	{"sellerRegDays", FieldSchema{Type: FieldTypeNumber, Label: "卖家注册天数"}, 0},
+	{"sellerItemCount", FieldSchema{Type: FieldTypeNumber, Label: "卖家在售商品数"}, 0},
+	{"sellerSoldCount", FieldSchema{Type: FieldTypeNumber, Label: "卖家已售数量"}, 0},
+	{"sellerSignature", FieldSchema{Type: FieldTypeText, Label: "卖家签名"}, 0},
+
+	// 商品描述
+	{"description", FieldSchema{Type: FieldTypeText, Label: "详细描述"}, 0},
+	{"desc", FieldSchema{Type: FieldTypeText, Label: "简述"}, 0},
+	{"subTitle", FieldSchema{Type: FieldTypeText, Label: "副标题"}, 0},
+
+	// 媒体资源
+	{"videoUrl", FieldSchema{Type: FieldTypeURL, Label: "视频URL"}, 0},
+
+	// 分类信息
+	{"categoryId", FieldSchema{Type: FieldTypeNumber, Label: "分类ID"}, 0},
+
+	// 商品状态
+	{"status", FieldSchema{Type: FieldTypeText, Label: "商品状态"}, 0},
+	{"itemStatus", FieldSchema{Type: FieldTypeNumber, Label: "商品状态码"}, 0},
+	{"itemStatusStr", FieldSchema{Type: FieldTypeText, Label: "商品状态文本"}, 0},
+
+	// 数组字段（JSON存储）
+	{"imageListJson", FieldSchema{Type: FieldTypeText, Label: "图片列表JSON"}, 0},
+	{"skuListJson", FieldSchema{Type: FieldTypeText, Label: "SKU列表JSON"}, 0},
+	{"cpvLabelsJson", FieldSchema{Type: FieldTypeText, Label: "属性标签JSON"}, 0},
+	{"itemTagsJson", FieldSchema{Type: FieldTypeText, Label: "商品标签JSON"}, 0},
+
+	// 其他
+	{"hasSku", FieldSchema{Type: FieldTypeCheckbox, Label: "是否有规格"}, 0},
+	{"totalStock", FieldSchema{Type: FieldTypeNumber, Label: "总库存"}, 0},
+	{"priceInCent", FieldSchema{Type: FieldTypeNumber, Label: "价格(分)"}, 0},
 }
 
-// Product 商品信息（对应 FeedItem，增加采集时间等字段）
+// Product 商品信息（对应 ItemDetail，增加采集时间等字段）
 type Product struct {
+	// ==================== 现有字段 ====================
 	ItemID            string    `json:"itemId"`
 	Title             string    `json:"title"`
 	Price             string    `json:"price"`
@@ -74,6 +122,52 @@ type Product struct {
 	ExposureHeat      int       `json:"exposureHeat,omitempty"`
 	ProPolishTime     string    `json:"proPolishTime,omitempty"`
 	ProPolishTimeMs   int64     `json:"proPolishTimeMs,omitempty"`
+
+	// ==================== 新增字段 ====================
+
+	// 商品热度指标
+	ViewCount    int `json:"viewCount,omitempty"`     // 浏览次数
+	CollectCount int `json:"collectCount,omitempty"`  // 收藏次数
+
+	// 商品属性
+	Condition string `json:"condition,omitempty"` // 成色
+	IsNew     bool   `json:"isNew,omitempty"`     // 是否全新
+
+	// 卖家扩展信息
+	SellerID        string `json:"sellerId,omitempty"`        // 卖家ID
+	SellerCredit    string `json:"sellerCredit,omitempty"`    // 卖家芝麻信用
+	ShopLevel       string `json:"shopLevel,omitempty"`       // 店铺级别
+	SellerRegDays   int    `json:"sellerRegDays,omitempty"`   // 卖家注册天数
+	SellerItemCount int    `json:"sellerItemCount,omitempty"` // 卖家在售商品数
+	SellerSoldCount int    `json:"sellerSoldCount,omitempty"` // 卖家已售数量
+	SellerSignature string `json:"sellerSignature,omitempty"` // 卖家签名
+
+	// 商品描述
+	Description string `json:"description,omitempty"` // 详细描述
+	Desc        string `json:"desc,omitempty"`        // 简述
+	SubTitle    string `json:"subTitle,omitempty"`    // 副标题
+
+	// 媒体资源
+	VideoURL string `json:"videoUrl,omitempty"` // 视频URL
+
+	// 分类信息
+	CategoryID int `json:"categoryId,omitempty"` // 分类ID
+
+	// 商品状态
+	Status        string `json:"status,omitempty"`        // 商品状态
+	ItemStatus    int    `json:"itemStatus,omitempty"`    // 商品状态码
+	ItemStatusStr string `json:"itemStatusStr,omitempty"` // 商品状态文本
+
+	// 数组字段（JSON格式）
+	ImageListJSON string `json:"imageListJson,omitempty"` // 图片列表JSON
+	SKUListJSON   string `json:"skuListJson,omitempty"`   // SKU列表JSON
+	CPVLabelsJSON string `json:"cpvLabelsJson,omitempty"` // 属性标签JSON
+	ItemTagsJSON  string `json:"itemTagsJson,omitempty"`  // 商品标签JSON
+
+	// 其他
+	HasSKU      bool `json:"hasSku,omitempty"`      // 是否有规格
+	TotalStock  int  `json:"totalStock,omitempty"`  // 总库存
+	PriceInCent int  `json:"priceInCent,omitempty"` // 价格（分）
 }
 
 // PushToBitableRequest 推送到飞书多维表格请求
