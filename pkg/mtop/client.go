@@ -148,7 +148,15 @@ func (c *Client) Do(req Request) (*Response, error) {
 	values.Set("timeout", "20000")
 	values.Set("api", req.API)
 	values.Set("sessionOption", "AutoLoginOnly")
-	values.Set("spm_cnt", "a21ybx.home.0.0")
+
+	// 根据API类型设置不同的 spm_cnt
+	// mtop.taobao.idle.pc.detail 是商品详情API，使用 item.0.0
+	// mtop.taobao.idlehome.home.webpc.feed 是首页feed流API，使用 home.0.0
+	spmCnt := "a21ybx.home.0.0"
+	if strings.Contains(req.API, "detail") {
+		spmCnt = "a21ybx.item.0.0"
+	}
+	values.Set("spm_cnt", spmCnt)
 
 	// 创建表单 body（data 作为表单字段）
 	formData := url.Values{}
@@ -185,6 +193,14 @@ func (c *Client) Do(req Request) (*Response, error) {
 	// 打印调试信息
 	fmt.Printf("\n[调试] 请求URL: %s\n", httpRequest.URL.String())
 	fmt.Printf("[调试] 请求Body: %s\n", formData.Encode())
+	// 打印关键 Cookie
+	fmt.Printf("[调试] 发送的 Cookie 数量: %d\n", len(c.cookies))
+	for _, cookie := range c.cookies {
+		if cookie.Name == "_m_h5_tk" || cookie.Name == "_m_h5_tk_enc" ||
+		   cookie.Name == "cookie2" || cookie.Name == "cna" || cookie.Name == "unb" {
+			fmt.Printf("[调试]   %s: %s\n", cookie.Name, maskCookieValue(cookie.Value))
+		}
+	}
 
 	// 发送请求
 	resp, err := c.httpClient.Do(httpRequest)
@@ -200,7 +216,7 @@ func (c *Client) Do(req Request) (*Response, error) {
 	}
 
 	// 打印调试信息
-	// fmt.Printf("\n[调试] API响应: status=%d, body=%s\n", resp.StatusCode, string(body))
+	fmt.Printf("\n[调试] API响应: status=%d, body=%s\n", resp.StatusCode, string(body))
 
 	// 解析响应
 	var result Response
@@ -209,4 +225,12 @@ func (c *Client) Do(req Request) (*Response, error) {
 	}
 
 	return &result, nil
+}
+
+// maskCookieValue 隐藏 Cookie 值用于调试输出
+func maskCookieValue(value string) string {
+	if len(value) <= 10 {
+		return value[:2] + "***"
+	}
+	return value[:4] + "..." + value[len(value)-4:]
 }

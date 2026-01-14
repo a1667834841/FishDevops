@@ -118,6 +118,29 @@ func GetCookiesWithBrowser(config BrowserConfig) (*CookieResult, error) {
 		return nil, fmt.Errorf("打开闲鱼网站失败: %w", err)
 	}
 
+	// 检查是否需要登录
+	needLogin, _ := page.Evaluate("() => { return !!document.querySelector('.login-guide') || document.body.innerText.includes('立即登录') }")
+	if needLogin != nil && needLogin.(bool) {
+		// 非无头模式下提示用户登录
+		if !headless {
+			fmt.Println("\n========================================")
+			fmt.Println("  请在浏览器中登录闲鱼账号")
+			fmt.Println("========================================")
+			fmt.Println("等待用户登录...")
+
+			// 等待用户登录（最多等待5分钟）
+			_, err := page.WaitForFunction("() => { return !document.querySelector('.login-guide') && !document.body.innerText.includes('立即登录') }", nil)
+			if err != nil {
+				return nil, fmt.Errorf("等待登录超时，请确保已登录闲鱼账号")
+			}
+			fmt.Println("✅ 检测到登录成功！")
+			// 登录后再等待一下让 cookie 生成
+			time.Sleep(2 * time.Second)
+		} else {
+			return nil, fmt.Errorf("检测到未登录，请先在浏览器中登录闲鱼账号，或使用 headless=false 模式运行")
+		}
+	}
+
 	// 等待页面完全加载并执行JavaScript
 	// 等待一小段时间让异步脚本执行
 	time.Sleep(time.Duration(2000+rand.Intn(2000)) * time.Millisecond)
@@ -133,6 +156,29 @@ func GetCookiesWithBrowser(config BrowserConfig) (*CookieResult, error) {
 	cookies, err := context.Cookies()
 	if err != nil {
 		return nil, fmt.Errorf("获取Cookies失败: %w", err)
+	}
+
+	// 检查关键 Cookie 是否存在
+	hasCookie2 := false
+	hasUnb := false
+	for _, c := range cookies {
+		if c.Name == "cookie2" && c.Value != "" {
+			hasCookie2 = true
+		}
+		if c.Name == "unb" && c.Value != "" {
+			hasUnb = true
+		}
+	}
+
+	if !hasCookie2 || !hasUnb {
+		fmt.Println("\n⚠️  警告: 检测到登录状态不完整")
+		if !hasCookie2 {
+			fmt.Println("   - 缺少 cookie2")
+		}
+		if !hasUnb {
+			fmt.Println("   - 缺少 unb (用户ID)")
+		}
+		fmt.Println("   可能导致 API 调用失败")
 	}
 
 	// 转换为 http.Cookie 格式

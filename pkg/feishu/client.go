@@ -13,8 +13,8 @@ const (
 	// 飞书 API 基础 URL
 	baseURL = "https://open.feishu.cn"
 	// API 路径
-	authPath       = "/open-apis/auth/v3/tenant_access_token/internal"
-	bitablePath    = "/open-apis/bitable/v1/apps/%s/tables/%s/records"
+	authPath         = "/open-apis/auth/v3/tenant_access_token/internal"
+	bitablePath      = "/open-apis/bitable/v1/apps/%s/tables/%s/records"
 	bitableBatchPath = "/open-apis/bitable/v1/apps/%s/tables/%s/records/batch_create"
 )
 
@@ -37,6 +37,7 @@ type FeishuClient interface {
 	PushToBitable(appToken, tableToken string, products []Product) (*PushToBitableResponse, error)
 	CreateRecord(appToken, tableToken string, product Product) error
 	GetTableRecords(appToken, tableToken string) ([]map[string]interface{}, error)
+	SearchRecords(appToken, tableToken string, filter FilterInfo) ([]map[string]interface{}, error)
 }
 
 // ClientConfig 客户端配置
@@ -58,10 +59,10 @@ func NewClient(config ClientConfig) *Client {
 
 // TenantAccessTokenResponse 租户访问令牌响应
 type TenantAccessTokenResponse struct {
-	Code               int    `json:"code"`
-	TenantAccessToken  string `json:"tenant_access_token"`
-	Expire             int    `json:"expire"`
-	Msg                string `json:"msg"`
+	Code              int    `json:"code"`
+	TenantAccessToken string `json:"tenant_access_token"`
+	Expire            int    `json:"expire"`
+	Msg               string `json:"msg"`
 }
 
 // GetTenantAccessToken 获取租户访问令牌
@@ -117,11 +118,11 @@ type Record struct {
 
 // CreateRecordsResponse 创建记录响应
 type CreateRecordsResponse struct {
-	Code int `json:"code"`
+	Code int    `json:"code"`
 	Msg  string `json:"msg"`
 	Data struct {
 		Records []struct {
-			RecordID string `json:"record_id"`
+			RecordID string                 `json:"record_id"`
 			Fields   map[string]interface{} `json:"fields"`
 		} `json:"records"`
 	} `json:"data"`
@@ -280,7 +281,7 @@ func (c *Client) PushToBitable(appToken, tableToken string, products []Product) 
 
 	// 发送请求
 	url := fmt.Sprintf(baseURL+bitableBatchPath, appToken, tableToken)
-	fmt.Printf("[DEBUG] API URL: %s\n", url)  // 调试日志
+	fmt.Printf("[DEBUG] API URL: %s\n", url) // 调试日志
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, fmt.Errorf("创建请求失败: %w", err)
@@ -334,14 +335,14 @@ func (c *Client) CreateRecord(appToken, tableToken string, product Product) erro
 
 // GetBitableInfoResponse 获取多维表格信息响应
 type GetBitableInfoResponse struct {
-	Code int `json:"code"`
+	Code int    `json:"code"`
 	Msg  string `json:"msg"`
 	Data struct {
-		HasMore  bool `json:"has_more"`
-		PageSize int  `json:"page_size"`
+		HasMore   bool   `json:"has_more"`
+		PageSize  int    `json:"page_size"`
 		PageToken string `json:"page_token"`
-		Total    int `json:"total"`
-		Items []struct {
+		Total     int    `json:"total"`
+		Items     []struct {
 			TableID  string `json:"table_id"`
 			Revision int    `json:"revision"`
 			Name     string `json:"name"`
@@ -451,21 +452,21 @@ type CreateTableRequest struct {
 
 // TableCreateSpec 表格创建规范
 type TableCreateSpec struct {
-	Name     string        `json:"name"`
-	DefaultViewID string    `json:"default_view_id,omitempty"`
-	Fields   []FieldCreate `json:"fields"`
+	Name          string        `json:"name"`
+	DefaultViewID string        `json:"default_view_id,omitempty"`
+	Fields        []FieldCreate `json:"fields"`
 }
 
 // FieldCreate 字段创建规范
 type FieldCreate struct {
-	FieldName string  `json:"field_name"`
-	Type      int     `json:"type"`
+	FieldName string                 `json:"field_name"`
+	Type      int                    `json:"type"`
 	Options   map[string]interface{} `json:"options,omitempty"`
 }
 
 // CreateTableResponse 创建表格响应
 type CreateTableResponse struct {
-	Code int `json:"code"`
+	Code int    `json:"code"`
 	Msg  string `json:"msg"`
 	Data struct {
 		Table TableInfo `json:"table"`
@@ -524,13 +525,13 @@ func (c *Client) CreateTable(appToken, tableName string, fields []FieldCreate) (
 
 // GetTableFieldsResponse 获取表格字段响应
 type GetTableFieldsResponse struct {
-	Code int `json:"code"`
+	Code int    `json:"code"`
 	Msg  string `json:"msg"`
 	Data struct {
 		Items []struct {
-			FieldID    string `json:"field_id"`
-			FieldName  string `json:"field_name"`
-			Type       int    `json:"type"`
+			FieldID      string `json:"field_id"`
+			FieldName    string `json:"field_name"`
+			Type         int    `json:"type"`
 			PropertyName string `json:"property_name,omitempty"`
 		} `json:"items"`
 	} `json:"data"`
@@ -586,7 +587,7 @@ type CreateFieldRequest struct {
 
 // CreateFieldResponse 创建字段响应
 type CreateFieldResponse struct {
-	Code int `json:"code"`
+	Code int    `json:"code"`
 	Msg  string `json:"msg"`
 	Data struct {
 		Field struct {
@@ -645,13 +646,13 @@ func (c *Client) CreateField(appToken, tableToken string, field FieldCreate) (st
 
 // GetTableRecordsResponse 获取表格记录响应
 type GetTableRecordsResponse struct {
-	Code int `json:"code"`
+	Code int    `json:"code"`
 	Msg  string `json:"msg"`
 	Data struct {
-		HasMore   bool `json:"has_more"`
-		PageSize  int  `json:"page_size"`
+		HasMore   bool   `json:"has_more"`
+		PageSize  int    `json:"page_size"`
 		PageToken string `json:"page_token"`
-		Total     int  `json:"total"`
+		Total     int    `json:"total"`
 		Items     []struct {
 			RecordID string                 `json:"record_id"`
 			Fields   map[string]interface{} `json:"fields"`
@@ -700,6 +701,90 @@ func (c *Client) GetTableRecords(appToken, tableToken string) ([]map[string]inte
 
 		if recordsResp.Code != 0 {
 			return nil, fmt.Errorf("获取记录失败: %s", recordsResp.Msg)
+		}
+
+		for _, item := range recordsResp.Data.Items {
+			allRecords = append(allRecords, item.Fields)
+		}
+
+		if !recordsResp.Data.HasMore {
+			break
+		}
+
+		pageToken = recordsResp.Data.PageToken
+	}
+
+	return allRecords, nil
+}
+
+// FilterInfo 记录过滤条件
+type FilterInfo struct {
+	Conjunction string      `json:"conjunction"` // and 或 or
+	Conditions  []Condition `json:"conditions"`
+}
+
+// Condition 过滤条件
+type Condition struct {
+	FieldName string   `json:"field_name"` // 字段名称
+	Operator  string   `json:"operator"`   // 操作符: is, isNot, contains, isEmpty, isNotEmpty 等
+	Value     []string `json:"value"`      // 条件值
+}
+
+// SearchRecordsRequest 查询记录请求
+type SearchRecordsRequest struct {
+	Filter *FilterInfo `json:"filter,omitempty"`
+}
+
+// SearchRecords 根据条件查询记录
+func (c *Client) SearchRecords(appToken, tableToken string, filter FilterInfo) ([]map[string]interface{}, error) {
+	token, err := c.GetTenantAccessToken()
+	if err != nil {
+		return nil, fmt.Errorf("获取访问令牌失败: %w", err)
+	}
+
+	var allRecords []map[string]interface{}
+	pageToken := ""
+
+	for {
+		reqBody := SearchRecordsRequest{
+			Filter: &filter,
+		}
+		jsonData, err := json.Marshal(reqBody)
+		if err != nil {
+			return nil, fmt.Errorf("构建请求失败: %w", err)
+		}
+
+		url := fmt.Sprintf(baseURL+"/open-apis/bitable/v1/apps/%s/tables/%s/records/search?page_size=100", appToken, tableToken)
+		if pageToken != "" {
+			url += "&page_token=" + pageToken
+		}
+
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		if err != nil {
+			return nil, fmt.Errorf("创建请求失败: %w", err)
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
+
+		resp, err := c.httpCli.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("请求失败: %w", err)
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("读取响应失败: %w", err)
+		}
+
+		var recordsResp GetTableRecordsResponse
+		if err := json.Unmarshal(body, &recordsResp); err != nil {
+			return nil, fmt.Errorf("解析响应失败: %w", err)
+		}
+
+		if recordsResp.Code != 0 {
+			return nil, fmt.Errorf("查询记录失败: %s", recordsResp.Msg)
 		}
 
 		for _, item := range recordsResp.Data.Items {

@@ -42,3 +42,4 @@ crawl_test.go
 
 # Playwright
 playwright-*
+*.js

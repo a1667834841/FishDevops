@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -796,4 +797,390 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+// ==================== 商品详情 API 测试 ====================
+
+// TestFetchItemDetail 测试获取商品详情
+func TestFetchItemDetail(t *testing.T) {
+	// 创建模拟响应数据
+	mockDetailData := map[string]interface{}{
+		"item": map[string]interface{}{
+			"id":         "test_item_id_123",
+			"itemId":     "item123",
+			"title":      "测试商品标题",
+			"subTitle":   "这是副标题",
+			"desc":       "这是商品简述",
+			"picUrl":     "https://example.com/image.jpg",
+			"videoUrl":   "https://example.com/video.mp4",
+			"categoryId": 50023914,
+			"price":      "100.00",
+			"oriPrice":   "150.00",
+			"unitPrice":  "10.00/斤",
+			"seller": map[string]interface{}{
+				"id":       "seller123",
+				"userNick": "测试卖家",
+				"avatarUrl": "https://example.com/avatar.jpg",
+				"encGid":   "enc123",
+				"havannaId": "havanna123",
+			},
+			"status":        "online",
+			"wantCount":     25,
+			"viewCount":     150,
+			"collectCount":  10,
+			"chatCount":     5,
+			"location": map[string]interface{}{
+				"text":     "上海 浦东新区",
+				"province": "上海",
+				"city":     "上海",
+				"area":     "浦东新区",
+			},
+			"publishTime":    "2026-01-10 10:30:00",
+			"publishTimeTs":  1736476800000,
+			"modifiedTime":   "2026-01-11 15:20:00",
+			"modifiedTimeTs": 1736587200000,
+			"condition":      "95新",
+			"isNew":          false,
+			"freeShipping":   true,
+			"images": []map[string]string{
+				{"url": "https://example.com/img1.jpg"},
+				{"url": "https://example.com/img2.jpg"},
+				{"url": "https://example.com/img3.jpg"},
+			},
+			"description": map[string]interface{}{
+				"content": "这是商品的详细描述内容\n包含多行文本",
+			},
+			"tags": []map[string]interface{}{
+				{"labelId": "1", "type": "text", "content": "包邮"},
+				{"labelId": "2", "type": "text", "content": "验货宝"},
+			},
+			"shopInfo": map[string]interface{}{
+				"level": "level5",
+			},
+		},
+	}
+
+	// 创建测试服务器
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// 验证请求参数
+		if r.Method != "POST" {
+			t.Errorf("Method = %s, want POST", r.Method)
+		}
+
+		query := r.URL.Query()
+		if query.Get("api") != "mtop.taobao.idle.pc.detail" {
+			t.Errorf("api = %s, want mtop.taobao.idle.pc.detail", query.Get("api"))
+		}
+
+		// 返回模拟响应
+		response := Response{
+			Ret:  []string{"SUCCESS::调用成功"},
+			V:    "1.0",
+			Data: json.RawMessage(mustMarshalJSON(mockDetailData)),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	// 创建客户端
+	client := NewClient("test_token_123", "34839810",
+		WithBaseURL(server.URL),
+	)
+
+	// 获取详情
+	detail, err := client.FetchItemDetail("item123")
+	if err != nil {
+		t.Fatalf("FetchItemDetail() error = %v", err)
+	}
+
+	// 验证基础字段
+	if detail.ItemID != "item123" {
+		t.Errorf("ItemID = %s, want item123", detail.ItemID)
+	}
+	if detail.Title != "测试商品标题" {
+		t.Errorf("Title = %s, want 测试商品标题", detail.Title)
+	}
+	if detail.SubTitle != "这是副标题" {
+		t.Errorf("SubTitle = %s, want 这是副标题", detail.SubTitle)
+	}
+	if detail.Desc != "这是商品简述" {
+		t.Errorf("Desc = %s, want 这是商品简述", detail.Desc)
+	}
+	if detail.CategoryID != 50023914 {
+		t.Errorf("CategoryID = %d, want 50023914", detail.CategoryID)
+	}
+
+	// 验证价格字段
+	if detail.Price != "100.00" {
+		t.Errorf("Price = %s, want 100.00", detail.Price)
+	}
+	if detail.PriceOriginal != "150.00" {
+		t.Errorf("PriceOriginal = %s, want 150.00", detail.PriceOriginal)
+	}
+	if detail.UnitPrice != "10.00/斤" {
+		t.Errorf("UnitPrice = %s, want 10.00/斤", detail.UnitPrice)
+	}
+
+	// 验证卖家字段
+	if detail.SellerID != "seller123" {
+		t.Errorf("SellerID = %s, want seller123", detail.SellerID)
+	}
+	if detail.SellerNick != "测试卖家" {
+		t.Errorf("SellerNick = %s, want 测试卖家", detail.SellerNick)
+	}
+	if detail.AvatarURL != "https://example.com/avatar.jpg" {
+		t.Errorf("AvatarURL = %s, want https://example.com/avatar.jpg", detail.AvatarURL)
+	}
+
+	// 验证状态字段
+	if detail.Status != "online" {
+		t.Errorf("Status = %s, want online", detail.Status)
+	}
+	if detail.WantCount != 25 {
+		t.Errorf("WantCount = %d, want 25", detail.WantCount)
+	}
+	if detail.ViewCount != 150 {
+		t.Errorf("ViewCount = %d, want 150", detail.ViewCount)
+	}
+	if detail.CollectCount != 10 {
+		t.Errorf("CollectCount = %d, want 10", detail.CollectCount)
+	}
+	if detail.ChatCount != 5 {
+		t.Errorf("ChatCount = %d, want 5", detail.ChatCount)
+	}
+
+	// 验证地址字段
+	if detail.Location != "上海 浦东新区" {
+		t.Errorf("Location = %s, want 上海 浦东新区", detail.Location)
+	}
+	if detail.Area != "浦东新区" {
+		t.Errorf("Area = %s, want 浦东新区", detail.Area)
+	}
+
+	// 验证时间字段
+	if detail.PublishTime != "2026-01-10 10:30:00" {
+		t.Errorf("PublishTime = %s, want 2026-01-10 10:30:00", detail.PublishTime)
+	}
+	if detail.PublishTimeTS != 1736476800000 {
+		t.Errorf("PublishTimeTS = %d, want 1736476800000", detail.PublishTimeTS)
+	}
+	if detail.ModifiedTime != "2026-01-11 15:20:00" {
+		t.Errorf("ModifiedTime = %s, want 2026-01-11 15:20:00", detail.ModifiedTime)
+	}
+	if detail.ModifiedTimeTS != 1736587200000 {
+		t.Errorf("ModifiedTimeTS = %d, want 1736587200000", detail.ModifiedTimeTS)
+	}
+
+	// 验证商品属性
+	if detail.Condition != "95新" {
+		t.Errorf("Condition = %s, want 95新", detail.Condition)
+	}
+	if detail.IsNew {
+		t.Error("IsNew = true, want false")
+	}
+	if !detail.FreeShipping {
+		t.Error("FreeShipping = false, want true")
+	}
+
+	// 验证图片列表
+	if len(detail.ImageList) != 3 {
+		t.Fatalf("ImageList length = %d, want 3", len(detail.ImageList))
+	}
+	if detail.ImageList[0] != "https://example.com/img1.jpg" {
+		t.Errorf("ImageList[0] = %s, want https://example.com/img1.jpg", detail.ImageList[0])
+	}
+
+	// 验证描述
+	if detail.Description != "这是商品的详细描述内容\n包含多行文本" {
+		t.Errorf("Description = %s, want 这是商品的详细描述内容\\n包含多行文本", detail.Description)
+	}
+
+	// 验证标签
+	if len(detail.Tags) != 2 {
+		t.Fatalf("Tags length = %d, want 2", len(detail.Tags))
+	}
+	if !contains(detail.Tags, "包邮") {
+		t.Error("Tags should contain '包邮'")
+	}
+	if !contains(detail.Tags, "验货宝") {
+		t.Error("Tags should contain '验货宝'")
+	}
+
+	// 验证店铺级别
+	if detail.ShopLevel != "level5" {
+		t.Errorf("ShopLevel = %s, want level5", detail.ShopLevel)
+	}
+}
+
+// TestFetchItemDetailWithEmptyItemID 测试空商品ID
+func TestFetchItemDetailWithEmptyItemID(t *testing.T) {
+	client := NewClient("test_token_123", "34839810")
+
+	_, err := client.FetchItemDetail("")
+	if err == nil {
+		t.Fatal("FetchItemDetail() should return error for empty itemID")
+	}
+
+	expectedErrMsg := "itemID 不能为空"
+	if err.Error() != expectedErrMsg {
+		t.Errorf("Error message = %s, want %s", err.Error(), expectedErrMsg)
+	}
+}
+
+// TestFetchItemDetailWithErrorStatus 测试API返回错误状态
+func TestFetchItemDetailWithErrorStatus(t *testing.T) {
+	// 创建测试服务器返回错误状态
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := Response{
+			Ret:  []string{"ERROR::系统错误"},
+			V:    "1.0",
+			Data: json.RawMessage(`{}`),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := NewClient("test_token_123", "34839810",
+		WithBaseURL(server.URL),
+	)
+
+	_, err := client.FetchItemDetail("item123")
+	if err == nil {
+		t.Fatal("FetchItemDetail() should return error for failed API response")
+	}
+
+	if !strings.Contains(err.Error(), "详情API返回错误") {
+		t.Errorf("Error should contain '详情API返回错误', got: %v", err)
+	}
+}
+
+// TestFetchItemDetailMinimalData 测试最小数据响应
+func TestFetchItemDetailMinimalData(t *testing.T) {
+	// 最小必需数据的响应
+	mockDetailData := map[string]interface{}{
+		"item": map[string]interface{}{
+			"itemId":  "minimal123",
+			"title":   "最小商品",
+			"price":   "50.00",
+			"status":  "online",
+			"seller": map[string]interface{}{
+				"id":       "seller456",
+				"userNick": "卖家456",
+			},
+			"location": map[string]interface{}{
+				"text": "北京",
+			},
+			"images":       []map[string]string{},
+			"description":  map[string]string{"content": ""},
+			"tags":        []map[string]interface{}{},
+			"shopInfo":    map[string]interface{}{},
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		response := Response{
+			Ret:  []string{"SUCCESS::调用成功"},
+			V:    "1.0",
+			Data: json.RawMessage(mustMarshalJSON(mockDetailData)),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	client := NewClient("test_token_123", "34839810",
+		WithBaseURL(server.URL),
+	)
+
+	detail, err := client.FetchItemDetail("minimal123")
+	if err != nil {
+		t.Fatalf("FetchItemDetail() error = %v", err)
+	}
+
+	// 验证最小字段
+	if detail.ItemID != "minimal123" {
+		t.Errorf("ItemID = %s, want minimal123", detail.ItemID)
+	}
+	if detail.Title != "最小商品" {
+		t.Errorf("Title = %s, want 最小商品", detail.Title)
+	}
+	if detail.Price != "50.00" {
+		t.Errorf("Price = %s, want 50.00", detail.Price)
+	}
+	if detail.SellerNick != "卖家456" {
+		t.Errorf("SellerNick = %s, want 卖家456", detail.SellerNick)
+	}
+
+	// 验证空切片
+	if len(detail.ImageList) != 0 {
+		t.Errorf("ImageList length = %d, want 0", len(detail.ImageList))
+	}
+	if len(detail.Tags) != 0 {
+		t.Errorf("Tags length = %d, want 0", len(detail.Tags))
+	}
+}
+
+// TestItemDetailJSONSerialization 测试ItemDetail的JSON序列化
+func TestItemDetailJSONSerialization(t *testing.T) {
+	detail := &ItemDetail{
+		ItemID:        "test123",
+		Title:         "测试商品",
+		Price:         "100.00",
+		WantCount:     25,
+		FreeShipping:  true,
+		Tags:          []string{"包邮", "验货宝"},
+		ImageList:     []string{"https://example.com/img1.jpg"},
+		PublishTimeTS: 1736476800000,
+	}
+
+	// 测试序列化
+	data, err := json.Marshal(detail)
+	if err != nil {
+		t.Fatalf("JSON序列化失败: %v", err)
+	}
+
+	// 测试反序列化
+	var decoded ItemDetail
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("JSON反序列化失败: %v", err)
+	}
+
+	// 验证关键字段
+	if decoded.ItemID != detail.ItemID {
+		t.Errorf("ItemID = %s, want %s", decoded.ItemID, detail.ItemID)
+	}
+	if decoded.WantCount != detail.WantCount {
+		t.Errorf("WantCount = %d, want %d", decoded.WantCount, detail.WantCount)
+	}
+	if !decoded.FreeShipping {
+		t.Error("FreeShipping = false, want true")
+	}
+	if len(decoded.Tags) != 2 {
+		t.Errorf("Tags length = %d, want 2", len(decoded.Tags))
+	}
+}
+
+// TestItemDetailRequest 测试请求参数结构
+func TestItemDetailRequest(t *testing.T) {
+	req := ItemDetailRequest{
+		ItemID: "test_item_123",
+	}
+
+	// 序列化
+	data, err := json.Marshal(req)
+	if err != nil {
+		t.Fatalf("JSON序列化失败: %v", err)
+	}
+
+	// 验证JSON内容
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Fatalf("JSON反序列化失败: %v", err)
+	}
+
+	if parsed["itemId"] != "test_item_123" {
+		t.Errorf("itemId = %v, want test_item_123", parsed["itemId"])
+	}
 }

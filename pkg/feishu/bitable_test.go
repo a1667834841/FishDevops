@@ -21,7 +21,7 @@ func TestBuildFieldCreates(t *testing.T) {
 
 	// 验证字段顺序和类型
 	expectedFields := []struct {
-		name string
+		name  string
 		ftype FieldType
 	}{
 		{"商品ID", FieldTypeText},
@@ -59,8 +59,6 @@ func TestBuildFieldCreates(t *testing.T) {
 		}
 	}
 }
-
-
 
 // TestGetTableNameByDate 测试日期转表名
 func TestGetTableNameByDate(t *testing.T) {
@@ -104,11 +102,11 @@ func TestPushProductsToDateTable(t *testing.T) {
 
 	products := []Product{
 		{
-			ItemID:    "item123",
-			Title:     "测试商品",
-			Price:     "100.00",
-			WantCnt:   10,
-			FreeShip:  "是",
+			ItemID:     "item123",
+			Title:      "测试商品",
+			Price:      "100.00",
+			WantCnt:    10,
+			FreeShip:   "是",
 			SellerNick: "测试卖家",
 		},
 	}
@@ -178,6 +176,11 @@ func (m *MockClient) CreateRecord(appToken, tableToken string, product Product) 
 }
 
 func (m *MockClient) GetTableRecords(appToken, tableToken string) ([]map[string]interface{}, error) {
+	// 返回空记录列表用于测试
+	return []map[string]interface{}{}, nil
+}
+
+func (m *MockClient) SearchRecords(appToken, tableToken string, filter FilterInfo) ([]map[string]interface{}, error) {
 	// 返回空记录列表用于测试
 	return []map[string]interface{}{}, nil
 }
@@ -396,7 +399,7 @@ func TestBitableService_GetTableByDate(t *testing.T) {
 
 	t.Run("表格不存在", func(t *testing.T) {
 		mockClient := &MockClient{
-			token:  "test_token",
+			token: "test_token",
 			tables: []TableInfo{
 				{TableID: "tbl789", Name: "2026-01-10"},
 			},
@@ -447,7 +450,7 @@ func TestBitableService_TableExists(t *testing.T) {
 
 	t.Run("表格不存在", func(t *testing.T) {
 		mockClient := &MockClient{
-			token:  "test_token",
+			token: "test_token",
 			tables: []TableInfo{
 				{TableID: "tbl789", Name: "2026-01-10"},
 			},

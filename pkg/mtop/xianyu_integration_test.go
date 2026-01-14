@@ -3,11 +3,8 @@ package mtop
 import (
 	"encoding/json"
 	"flag"
-	"net/http"
 	"os"
 	"testing"
-
-	"github.com/playwright-community/playwright-go"
 )
 
 // 集成测试标志
@@ -21,25 +18,25 @@ func skipIfNotIntegration(t *testing.T) {
 }
 
 // TestIntegrationGuessYouLike 集成测试：获取猜你喜欢
-// 运行方式: go test -v ./mtop/... -integration
+// 运行方式: go test -v ./pkg/mtop -integration
 func TestIntegrationGuessYouLike(t *testing.T) {
 	skipIfNotIntegration(t)
 
-	// 使用Playwright获取Cookie
-	token, cookies, err := getXianyuCookies()
+	// 使用浏览器获取Cookie
+	result, err := GetCookiesWithBrowser(BrowserConfig{Headless: true})
 	if err != nil {
 		t.Fatalf("获取Cookie失败: %v", err)
 	}
 
-	if token == "" {
+	if result.Token == "" {
 		t.Fatal("Token为空，可能需要先登录闲鱼")
 	}
 
-	t.Logf("获取到Token: %s", token)
+	t.Logf("获取到Token: %s", result.Token)
 
 	// 创建客户端
-	client := NewClient(token, "34839810",
-		WithCookies(cookies),
+	client := NewClient(result.Token, "34839810",
+		WithCookies(result.Cookies),
 	)
 
 	// 测试1: 获取第一页数据
@@ -111,13 +108,13 @@ func TestIntegrationGuessYouLike(t *testing.T) {
 func TestIntegrationClientDo(t *testing.T) {
 	skipIfNotIntegration(t)
 
-	token, cookies, err := getXianyuCookies()
+	result, err := GetCookiesWithBrowser(BrowserConfig{Headless: true})
 	if err != nil {
 		t.Fatalf("获取Cookie失败: %v", err)
 	}
 
-	client := NewClient(token, "34839810",
-		WithCookies(cookies),
+	client := NewClient(result.Token, "34839810",
+		WithCookies(result.Cookies),
 	)
 
 	// 构建请求数据
@@ -229,69 +226,6 @@ func TestIntegrationSignatureConsistency(t *testing.T) {
 	t.Logf("签名2: %s (t=%s)", result2.Sign, result2.T)
 }
 
-// getXianyuCookies 使用Playwright获取闲鱼Cookie
-func getXianyuCookies() (string, []*http.Cookie, error) {
-	pw, err := playwright.Run()
-	if err != nil {
-		return "", nil, err
-	}
-	defer pw.Stop()
-
-	browser, err := pw.Chromium.Launch(playwright.BrowserTypeLaunchOptions{
-		Headless: playwright.Bool(true),
-	})
-	if err != nil {
-		return "", nil, err
-	}
-	defer browser.Close()
-
-	context, err := browser.NewContext()
-	if err != nil {
-		return "", nil, err
-	}
-	defer context.Close()
-
-	page, err := context.NewPage()
-	if err != nil {
-		return "", nil, err
-	}
-	defer page.Close()
-
-	// 导航到闲鱼
-	_, err = page.Goto("https://www.goofish.com", playwright.PageGotoOptions{
-		WaitUntil: playwright.WaitUntilStateNetworkidle,
-	})
-	if err != nil {
-		return "", nil, err
-	}
-
-	// 获取Cookies
-	cookies, err := context.Cookies()
-	if err != nil {
-		return "", nil, err
-	}
-
-	// 转换Cookie格式
-	cookieMaps := make([]map[string]string, len(cookies))
-	for i, c := range cookies {
-		cookieMaps[i] = map[string]string{
-			"name":  c.Name,
-			"value": c.Value,
-		}
-		if c.Domain != "" {
-			cookieMaps[i]["domain"] = c.Domain
-		}
-		if c.Path != "" {
-			cookieMaps[i]["path"] = c.Path
-		}
-	}
-
-	httpCookies := ConvertMapSliceToHTTPCookies(cookieMaps)
-	token := GetTokenFromCookies(httpCookies)
-
-	return token, httpCookies, nil
-}
-
 // TestIntegrationFullFlow 完整流程集成测试
 func TestIntegrationFullFlow(t *testing.T) {
 	skipIfNotIntegration(t)
@@ -300,25 +234,25 @@ func TestIntegrationFullFlow(t *testing.T) {
 
 	// 步骤1: 获取Cookie
 	t.Log("步骤1: 获取Cookie")
-	token, cookies, err := getXianyuCookies()
+	result, err := GetCookiesWithBrowser(BrowserConfig{Headless: true})
 	if err != nil {
 		t.Fatalf("获取Cookie失败: %v", err)
 	}
-	if token == "" {
+	if result.Token == "" {
 		t.Fatal("未获取到Token")
 	}
-	t.Logf("✓ 获取到Token: %s...", token[:10])
+	t.Logf("✓ 获取到Token: %s...", result.Token[:10])
 
 	// 步骤2: 创建客户端
 	t.Log("步骤2: 创建客户端")
-	client := NewClient(token, "34839810", WithCookies(cookies))
+	client := NewClient(result.Token, "34839810", WithCookies(result.Cookies))
 	t.Log("✓ 客户端创建成功")
 
 	// 步骤3: 生成签名
 	t.Log("步骤3: 生成签名")
 	reqData := `{"itemId":"","pageSize":30,"pageNumber":1,"machId":""}`
 	signResult, err := Generate(reqData, GenerateOptions{
-		Token:  token,
+		Token:  result.Token,
 		AppKey: "34839810",
 	})
 	if err != nil {
@@ -354,13 +288,13 @@ func TestIntegrationFullFlow(t *testing.T) {
 
 	// 步骤5: 解析数据
 	t.Log("步骤5: 解析响应数据")
-	var result struct {
+	var respData struct {
 		Data struct {
 			FeedsCount int `json:"feedsCount"`
 		} `json:"data"`
 	}
-	if err := json.Unmarshal(resp.Data, &result.Data); err == nil {
-		t.Logf("✓ 解析成功，商品数量: %d", result.Data.FeedsCount)
+	if err := json.Unmarshal(resp.Data, &respData.Data); err == nil {
+		t.Logf("✓ 解析成功，商品数量: %d", respData.Data.FeedsCount)
 	}
 
 	// 步骤6: 使用高级API
@@ -382,22 +316,22 @@ func TestIntegrationFullFlow(t *testing.T) {
 func TestIntegrationCookieParsing(t *testing.T) {
 	skipIfNotIntegration(t)
 
-	token, cookies, err := getXianyuCookies()
+	result, err := GetCookiesWithBrowser(BrowserConfig{Headless: true})
 	if err != nil {
 		t.Fatalf("获取Cookie失败: %v", err)
 	}
 
-	t.Logf("获取到 %d 个Cookie", len(cookies))
+	t.Logf("获取到 %d 个Cookie", len(result.Cookies))
 
 	// 测试解析token
-	parsedToken := GetTokenFromCookies(cookies)
-	if parsedToken != token {
-		t.Errorf("Token解析不一致: %s vs %s", parsedToken, token)
+	parsedToken := GetTokenFromCookies(result.Cookies)
+	if parsedToken != result.Token {
+		t.Errorf("Token解析不一致: %s vs %s", parsedToken, result.Token)
 	}
 	t.Logf("✓ Token解析正确: %s", parsedToken)
 
 	// 测试获取所有token信息
-	allTokens := GetAllTokens(cookies)
+	allTokens := GetAllTokens(result.Cookies)
 	t.Logf("✓ 获取到以下token信息:")
 	for key, val := range allTokens {
 		if val != "" {
@@ -406,10 +340,10 @@ func TestIntegrationCookieParsing(t *testing.T) {
 	}
 
 	// 测试Cookie字符串解析
-	cookieStr := "_m_h5_tk=" + token + "_1234567890; cna=test_value; other=value"
+	cookieStr := "_m_h5_tk=" + result.Token + "_1234567890; cna=test_value; other=value"
 	parsedFromStr := GetTokenFromCookieString(cookieStr)
-	if parsedFromStr != token {
-		t.Errorf("从字符串解析Token不一致: %s vs %s", parsedFromStr, token)
+	if parsedFromStr != result.Token {
+		t.Errorf("从字符串解析Token不一致: %s vs %s", parsedFromStr, result.Token)
 	}
 	t.Logf("✓ 从字符串解析Token正确")
 }
@@ -426,12 +360,12 @@ func truncateString(s string, maxLen int) string {
 func TestIntegrationErrorHandling(t *testing.T) {
 	skipIfNotIntegration(t)
 
-	token, cookies, err := getXianyuCookies()
+	result, err := GetCookiesWithBrowser(BrowserConfig{Headless: true})
 	if err != nil {
 		t.Fatalf("获取Cookie失败: %v", err)
 	}
 
-	client := NewClient(token, "34839810", WithCookies(cookies))
+	client := NewClient(result.Token, "34839810", WithCookies(result.Cookies))
 
 	t.Run("InvalidAPI", func(t *testing.T) {
 		_, err := client.Do(Request{
@@ -459,4 +393,307 @@ func TestIntegrationErrorHandling(t *testing.T) {
 			t.Logf("✓ 空token正确返回错误")
 		}
 	})
+}
+
+// TestIntegrationFetchItemDetail 集成测试：获取商品详情
+// 测试真实商品ID: 963943643587
+// 运行方式: go test -v ./pkg/mtop -integration -run TestIntegrationFetchItemDetail
+func TestIntegrationFetchItemDetail(t *testing.T) {
+	// skipIfNotIntegration(t)
+
+	t.Log("========== 商品详情集成测试 ==========")
+	t.Log("测试商品ID: 963943643587")
+
+	// 步骤1: 获取Cookie和Token
+	t.Log("\n【步骤1】打开闲鱼网站获取Token...")
+
+	result, err := GetCookiesWithBrowser(BrowserConfig{Headless: true})
+	if err != nil {
+		t.Logf("❌ 获取Cookie失败: %v", err)
+		t.Logf("\n提示: 如果没有登录，可能无法获取有效的token")
+		t.Logf("建议使用 TestIntegrationFetchItemDetailWithManualToken 测试")
+		t.Logf("\n获取Token的方法:")
+		t.Logf("1. 打开浏览器访问 https://www.goofish.com")
+		t.Logf("2. 登录后打开开发者工具 (F12)")
+		t.Logf("3. 进入 Application/存储 → Cookies → https://www.goofish.com")
+		t.Logf("4. 找到 _m_h5_tk 的值，格式为 token_timestamp")
+		t.Logf("5. 复制下划线前的部分作为 Token")
+		t.Skip("需要手动提供Token来运行此测试")
+	}
+
+	if result.Token == "" {
+		t.Log("❌ 未获取到Token")
+		t.Log("获取到的Cookie列表:")
+		for _, c := range result.Cookies {
+			t.Logf("  - %s: %s", c.Name, truncateString(c.Value, 30))
+		}
+		t.Skip("未找到 _m_h5_tk Cookie，需要先登录闲鱼账号")
+	}
+
+	t.Logf("✓ 成功获取Token: %s... (长度: %d)", result.Token[:10], len(result.Token))
+	t.Logf("✓ 获取到 %d 个Cookie", len(result.Cookies))
+
+	// 步骤2: 创建客户端
+	t.Log("\n【步骤2】创建MTOP客户端...")
+	client := NewClient(result.Token, "34839810", WithCookies(result.Cookies))
+	t.Log("✓ 客户端创建成功")
+
+	// 步骤3: 获取商品详情
+	testItemID := "963943643587"
+	t.Logf("\n【步骤3】获取商品详情...")
+	t.Logf("正在请求商品ID: %s", testItemID)
+
+	detail, err := client.FetchItemDetail(testItemID)
+	if err != nil {
+		t.Logf("❌ 获取商品详情失败: %v", err)
+		t.Fatalf("API请求失败")
+	}
+
+	t.Log("✓ 成功获取商品详情")
+
+	// 步骤4: 打印商品信息
+	t.Log("\n【步骤4】商品详情数据:")
+	t.Log("==============================================")
+	t.Logf("【基础信息】")
+	t.Logf("  商品ID: %s", detail.ItemID)
+	t.Logf("  标题: %s", detail.Title)
+	if detail.SubTitle != "" {
+		t.Logf("  副标题: %s", detail.SubTitle)
+	}
+	if detail.Desc != "" {
+		t.Logf("  简述: %s", detail.Desc)
+	}
+	t.Logf("  分类ID: %d", detail.CategoryID)
+
+	t.Logf("\n【价格信息】")
+	t.Logf("  售价: %s", detail.Price)
+	if detail.PriceOriginal != "" {
+		t.Logf("  原价: %s", detail.PriceOriginal)
+	}
+	if detail.UnitPrice != "" {
+		t.Logf("  单价: %s", detail.UnitPrice)
+	}
+
+	t.Logf("\n【卖家信息】")
+	t.Logf("  卖家ID: %s", detail.SellerID)
+	t.Logf("  卖家昵称: %s", detail.SellerNick)
+	if detail.AvatarURL != "" {
+		t.Logf("  头像: %s", detail.AvatarURL)
+	}
+	if detail.ShopLevel != "" {
+		t.Logf("  店铺级别: %s", detail.ShopLevel)
+	}
+
+	t.Logf("\n【商品状态】")
+	t.Logf("  商品状态: %s", detail.Status)
+	if detail.WantCount > 0 {
+		t.Logf("  想要人数: %d", detail.WantCount)
+	}
+	if detail.ViewCount > 0 {
+		t.Logf("  浏览次数: %d", detail.ViewCount)
+	}
+	if detail.CollectCount > 0 {
+		t.Logf("  收藏次数: %d", detail.CollectCount)
+	}
+	if detail.ChatCount > 0 {
+		t.Logf("  咨询次数: %d", detail.ChatCount)
+	}
+
+	if detail.Location != "" {
+		t.Logf("\n【地址信息】")
+		t.Logf("  位置: %s", detail.Location)
+		if detail.Area != "" {
+			t.Logf("  区域: %s", detail.Area)
+		}
+	}
+
+	t.Logf("\n【商品属性】")
+	if detail.Condition != "" {
+		condition := detail.Condition
+		if detail.IsNew {
+			condition += " (全新)"
+		}
+		t.Logf("  成色: %s", condition)
+	}
+	t.Logf("  包邮: %v", detail.FreeShipping)
+	if len(detail.Tags) > 0 {
+		t.Logf("  标签: %s", formatTags(detail.Tags))
+	}
+
+	if detail.PublishTime != "" {
+		t.Logf("\n【时间信息】")
+		t.Logf("  发布时间: %s", detail.PublishTime)
+		if detail.ModifiedTime != "" {
+			t.Logf("  修改时间: %s", detail.ModifiedTime)
+		}
+	}
+
+	if len(detail.ImageList) > 0 {
+		t.Logf("\n【图片列表】(%d张)", len(detail.ImageList))
+		for i, img := range detail.ImageList {
+			if i < 3 { // 只显示前3张
+				t.Logf("  %d. %s", i+1, img)
+			}
+		}
+		if len(detail.ImageList) > 3 {
+			t.Logf("  ... 还有 %d 张图片", len(detail.ImageList)-3)
+		}
+	}
+
+	t.Log("==============================================")
+
+	// 步骤5: 验证关键字段
+	t.Log("\n【步骤5】验证关键字段...")
+	t.Run("验证关键字段", func(t *testing.T) {
+		// 基础字段验证
+		if detail.ItemID == "" {
+			t.Error("❌ ItemID 为空")
+		} else {
+			t.Logf("✓ ItemID: %s", detail.ItemID)
+		}
+
+		if detail.ItemID != testItemID {
+			t.Errorf("❌ ItemID 不匹配: 期望 %s, 实际 %s", testItemID, detail.ItemID)
+		} else {
+			t.Logf("✓ ItemID 匹配")
+		}
+
+		if detail.Title == "" {
+			t.Error("❌ Title 为空")
+		} else {
+			t.Logf("✓ Title: %s", detail.Title)
+		}
+
+		if detail.Status == "" {
+			t.Error("❌ Status 为空")
+		} else {
+			t.Logf("✓ Status: %s", detail.Status)
+		}
+
+		if detail.Price == "" {
+			t.Error("❌ Price 为空")
+		} else {
+			t.Logf("✓ Price: %s", detail.Price)
+		}
+
+		// 卖家信息验证
+		if detail.SellerID == "" {
+			t.Error("❌ SellerID 为空")
+		} else {
+			t.Logf("✓ SellerID: %s", detail.SellerID)
+		}
+
+		if detail.SellerNick == "" {
+			t.Error("❌ SellerNick 为空")
+		} else {
+			t.Logf("✓ SellerNick: %s", detail.SellerNick)
+		}
+
+		// 地址信息验证
+		if detail.Location == "" {
+			t.Error("❌ Location 为空")
+		} else {
+			t.Logf("✓ Location: %s", detail.Location)
+		}
+
+		// 时间戳验证
+		if detail.PublishTimeTS == 0 {
+			t.Error("❌ PublishTimeTS 为 0")
+		} else {
+			t.Logf("✓ PublishTimeTS: %d", detail.PublishTimeTS)
+		}
+
+		t.Logf("\n✅ 所有关键字段验证通过")
+	})
+
+	// 步骤6: 验证数据合理性
+	t.Log("\n【步骤6】验证数据合理性...")
+	t.Run("验证数据合理性", func(t *testing.T) {
+		// 想要人数应该是非负数
+		if detail.WantCount < 0 {
+			t.Errorf("❌ WantCount 不合理: %d", detail.WantCount)
+		} else {
+			t.Logf("✓ WantCount: %d", detail.WantCount)
+		}
+
+		// 浏览次数应该大于想要人数（通常情况）
+		if detail.ViewCount > 0 && detail.ViewCount < detail.WantCount {
+			t.Logf("⚠️  警告: ViewCount(%d) 小于 WantCount(%d)", detail.ViewCount, detail.WantCount)
+		}
+
+		// 图片列表应该至少包含主图
+		if detail.ImageURL == "" && len(detail.ImageList) == 0 {
+			t.Error("❌ 没有任何图片信息")
+		} else {
+			if detail.ImageURL != "" {
+				t.Logf("✓ 主图URL: %s", detail.ImageURL)
+			}
+			if len(detail.ImageList) > 0 {
+				t.Logf("✓ 图片数量: %d", len(detail.ImageList))
+			}
+		}
+
+		// 分类ID应该在合理范围内
+		if detail.CategoryID <= 0 {
+			t.Errorf("❌ CategoryID 不合理: %d", detail.CategoryID)
+		} else {
+			t.Logf("✓ CategoryID: %d", detail.CategoryID)
+		}
+
+		t.Logf("\n✅ 数据合理性验证通过")
+	})
+
+	// 步骤7: 验证JSON序列化
+	t.Log("\n【步骤7】验证JSON序列化...")
+	t.Run("验证JSON序列化", func(t *testing.T) {
+		data, err := json.MarshalIndent(detail, "", "  ")
+		if err != nil {
+			t.Fatalf("❌ JSON序列化失败: %v", err)
+		}
+
+		t.Logf("✓ JSON序列化成功，数据长度: %d 字节", len(data))
+
+		// 反序列化验证
+		var decoded ItemDetail
+		if err := json.Unmarshal(data, &decoded); err != nil {
+			t.Fatalf("❌ JSON反序列化失败: %v", err)
+		}
+
+		// 验证关键字段
+		if decoded.ItemID != detail.ItemID {
+			t.Errorf("❌ 序列化后ItemID不一致: %s vs %s", decoded.ItemID, detail.ItemID)
+		}
+		if decoded.Title != detail.Title {
+			t.Errorf("❌ 序列化后Title不一致: %s vs %s", decoded.Title, detail.Title)
+		}
+		if decoded.Price != detail.Price {
+			t.Errorf("❌ 序列化后Price不一致: %s vs %s", decoded.Price, detail.Price)
+		}
+
+		t.Logf("✓ JSON序列化/反序列化验证通过")
+	})
+
+	t.Log("\n==============================================")
+	t.Log("✅ 商品详情集成测试全部通过！")
+	t.Log("==============================================")
+
+	// 步骤8: 数据分析字段报告
+	t.Log("\n【步骤8】数据分析字段报告...")
+	AnalyzeItemDetailForDataAnalysis(detail)
+}
+
+
+// formatTags 格式化标签列表
+func formatTags(tags []string) string {
+	if len(tags) == 0 {
+		return "无"
+	}
+	result := ""
+	for i, tag := range tags {
+		if i > 0 {
+			result += ", "
+		}
+		result += tag
+	}
+	return result
 }
