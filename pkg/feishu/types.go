@@ -96,7 +96,7 @@ var ProductFields = []struct {
 	// 其他
 	{"hasSku", FieldSchema{Type: FieldTypeCheckbox, Label: "是否有规格"}, 0},
 	{"totalStock", FieldSchema{Type: FieldTypeNumber, Label: "总库存"}, 0},
-	{"priceInCent", FieldSchema{Type: FieldTypeNumber, Label: "价格(分)"}, 0},
+	{"priceInCent", FieldSchema{Type: FieldTypeNumber, Label: "价格分"}, 0}, // 移除括号
 }
 
 // Product 商品信息（对应 ItemDetail，增加采集时间等字段）
@@ -239,11 +239,8 @@ func GetFieldMapping() map[string]FieldSchema {
 func GetFieldNameMapping() map[string]string {
 	mapping := make(map[string]string)
 	for _, field := range ProductFields {
-		if field.Schema.FieldName != "" {
-			mapping[field.Key] = field.Schema.FieldName
-		} else {
-			mapping[field.Key] = field.Schema.Label
-		}
+		// 直接使用 Key 作为字段名（英文标识符）
+		mapping[field.Key] = field.Key
 	}
 	return mapping
 }

@@ -287,19 +287,63 @@ func (s *BitableService) EnsureTableFields(tableID string) error {
 		return fmt.Errorf("获取现有字段失败: %w", err)
 	}
 
+	fmt.Printf("[DEBUG] 现有字段数: %d\n", len(existingFields))
+
+	// 统计字段创建结果
+	successCount := 0
+	failCount := 0
+	skipCount := 0
+	var failedFields []string
+
 	// 检查并创建缺失的字段
 	for _, pf := range ProductFields {
-		fieldName := pf.Schema.Label
+		// 使用 Key（英文标识符）作为字段名
+		fieldName := pf.Key
 		if _, exists := existingFields[fieldName]; !exists {
 			// 字段不存在，创建它
 			field := FieldCreate{
 				FieldName: fieldName,
 				Type:      int(pf.Schema.Type),
+				Options: map[string]interface{}{
+					"label": pf.Schema.Label, // 设置中文名称
+				},
 			}
-			if _, err := s.client.CreateField(s.config.AppToken, tableID, field); err != nil {
-				return fmt.Errorf("创建字段 %s 失败: %w", fieldName, err)
+
+			fmt.Printf("[创建字段] %s (fieldName=%s, type=%d)\n", pf.Schema.Label, fieldName, pf.Schema.Type)
+
+			fieldID, err := s.client.CreateField(s.config.AppToken, tableID, field)
+			if err != nil {
+				// 打印详细错误用于调试
+				fmt.Printf("[ERROR] 创建字段失败!\n")
+				fmt.Printf("  - 中文名称: %s\n", pf.Schema.Label)
+				fmt.Printf("  - 字段标识: %s\n", fieldName)
+				fmt.Printf("  - 字段类型: %d\n", pf.Schema.Type)
+				fmt.Printf("  - 错误信息: %v\n", err)
+				failCount++
+				failedFields = append(failedFields, pf.Schema.Label)
+				// 继续创建其他字段，不直接返回错误
+				continue
 			}
+
+			successCount++
+			fmt.Printf("[SUCCESS] 创建字段成功: %s (fieldID=%s)\n", pf.Schema.Label, fieldID)
+		} else {
+			skipCount++
 		}
+	}
+
+	// 打印统计信息
+	fmt.Printf("\n[字段创建统计]\n")
+	fmt.Printf("  成功: %d\n", successCount)
+	fmt.Printf("  跳过(已存在): %d\n", skipCount)
+	fmt.Printf("  失败: %d\n", failCount)
+
+	if failCount > 0 {
+		fmt.Printf("\n[失败字段列表]\n")
+		for i, name := range failedFields {
+			fmt.Printf("  %d. %s\n", i+1, name)
+		}
+		return fmt.Errorf("有 %d 个字段创建失败", failCount)
 	}
 
 	return nil
