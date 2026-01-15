@@ -39,6 +39,11 @@ jobs:
       - name: Verify dependencies
         run: go mod verify
 
+      - name: Verify module
+        run: |
+          go list -m
+          go env GOPATH GOROOT
+
       - name: Run go vet
         run: go vet ./...
 
