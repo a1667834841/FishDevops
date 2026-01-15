@@ -11,11 +11,21 @@ import (
 
 // Client MTOP API 客户端
 type Client struct {
-	httpClient *http.Client
-	baseURL    string
-	token      string
-	appKey     string
-	cookies    []*http.Cookie
+	httpClient    *http.Client
+	baseURL       string
+	token         string
+	appKey        string
+	cookies       []*http.Cookie
+	antiBot       *AntiBotMiddleware // 反爬虫中间件
+	headerBuilder *HeaderBuilder     // 请求头构建器
+	delayManager  *DelayManager      // 延迟管理器
+}
+
+// AntiBotMiddleware 反爬虫中间件
+type AntiBotMiddleware struct {
+	enabled       bool
+	headerBuilder *HeaderBuilder
+	delayManager  *DelayManager
 }
 
 // ClientOption 客户端配置选项
@@ -58,6 +68,25 @@ func WithCookieString(cookieStr string) ClientOption {
 			}
 		}
 		c.cookies = cookies
+	}
+}
+
+// WithAntiBotConfig 设置反爬虫配置
+func WithAntiBotConfig(enabled bool, minDelay, maxDelay int) ClientOption {
+	return func(c *Client) {
+		if !enabled {
+			return
+		}
+		headerBuilder := NewHeaderBuilder(globalUAPool)
+		delayManager := NewDelayManager(minDelay, maxDelay)
+
+		c.antiBot = &AntiBotMiddleware{
+			enabled:       true,
+			headerBuilder: headerBuilder,
+			delayManager:  delayManager,
+		}
+		c.headerBuilder = headerBuilder
+		c.delayManager = delayManager
 	}
 }
 
@@ -105,10 +134,20 @@ type Response struct {
 
 // Do 发送请求
 func (c *Client) Do(req Request) (*Response, error) {
+	// 如果启用反爬虫，先执行延迟
+	if c.antiBot != nil && c.antiBot.enabled {
+		c.antiBot.delayManager.Wait()
+	}
+
 	// 构建请求
 	httpRequest, err := c.BuildRequest(req)
 	if err != nil {
 		return nil, err
+	}
+
+	// 如果启用反爬虫，应用随机请求头
+	if c.antiBot != nil && c.antiBot.enabled {
+		c.applyAntiBotHeaders(httpRequest)
 	}
 
 	// 发送请求
@@ -131,6 +170,22 @@ func (c *Client) Do(req Request) (*Response, error) {
 	}
 
 	return &result, nil
+}
+
+// applyAntiBotHeaders 应用反爬虫请求头
+func (c *Client) applyAntiBotHeaders(req *http.Request) {
+	randomHeaders := c.antiBot.headerBuilder.BuildRandomHeaders()
+	for k, v := range randomHeaders {
+		req.Header.Set(k, v)
+	}
+
+	// 确保基础请求头不被覆盖
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+	req.Header.Set("Accept", "application/json, text/plain, */*")
+	req.Header.Set("Origin", "https://www.goofish.com")
+	req.Header.Set("Sec-Fetch-Dest", "empty")
+	req.Header.Set("Sec-Fetch-Mode", "cors")
+	req.Header.Set("Sec-Fetch-Site", "same-site")
 }
 
 // maskCookieValue 隐藏 Cookie 值用于调试输出

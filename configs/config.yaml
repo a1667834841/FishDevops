@@ -21,3 +21,10 @@ feishu:
 logging:
   level: info  # debug, info, warn, error
   format: text  # json, text
+
+# 反爬虫配置
+anti_bot:
+  enabled: true  # 是否启用反爬虫增强
+  delay:
+    min_ms: 1000  # 最小延迟（毫秒）
+    max_ms: 3000  # 最大延迟（毫秒）

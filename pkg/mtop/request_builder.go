@@ -37,7 +37,12 @@ func (c *Client) BuildRequest(req Request) (*http.Request, error) {
 	}
 
 	httpRequest.URL.RawQuery = values.Encode()
-	builder.setHeaders(httpRequest)
+
+	// 如果未启用反爬虫，使用固定请求头；否则在 Do() 方法中应用随机请求头
+	if c.antiBot == nil || !c.antiBot.enabled {
+		builder.setHeaders(httpRequest)
+	}
+
 	builder.addCookies(httpRequest)
 
 	return httpRequest, nil

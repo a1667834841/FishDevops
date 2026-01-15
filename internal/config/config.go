@@ -11,7 +11,8 @@ type Config struct {
 	Browser BrowserConfig `yaml:"browser" env-prefix:"BROWSER_"`
 	Feishu  FeishuConfig  `yaml:"feishu" env-prefix:"FEISHU_"`
 	Logging LoggingConfig `yaml:"logging" env-prefix:"LOGGING_"`
-	MTOP    MTOPConfig    `yaml:"-"` // MTOP配置不直接从文件加载
+	AntiBot AntiBotConfig `yaml:"anti_bot" env-prefix:"ANTI_BOT_"` // 反爬虫配置
+	MTOP    MTOPConfig    `yaml:"-"`                               // MTOP配置不直接从文件加载
 }
 
 // ServerConfig 服务器配置
@@ -51,4 +52,16 @@ type MTOPConfig struct {
 // GetTimeout 获取超时时间
 func (c ServerConfig) GetTimeout() time.Duration {
 	return time.Duration(c.Timeout) * time.Second
+}
+
+// AntiBotConfig 反爬虫配置
+type AntiBotConfig struct {
+	Enabled bool        `yaml:"enabled" env:"ENABLED" default:"true"` // 是否启用反爬虫
+	Delay   DelayConfig `yaml:"delay"`                                // 延迟配置
+}
+
+// DelayConfig 延迟配置
+type DelayConfig struct {
+	MinMs int `yaml:"min_ms" env:"DELAY_MIN_MS" default:"1000"` // 最小延迟（毫秒）
+	MaxMs int `yaml:"max_ms" env:"DELAY_MAX_MS" default:"3000"` // 最大延迟（毫秒）
 }

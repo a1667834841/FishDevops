@@ -36,3 +36,17 @@ logging:
   level: info
   # 日志格式: json, text
   format: text
+
+# 反爬虫配置
+anti_bot:
+  # 是否启用反爬虫增强（默认启用）
+  # 启用后，每次请求会：
+  # 1. 随机选择 User-Agent（从12个预定义UA中）
+  # 2. 随机延迟 1-3 秒
+  # 3. 随机化 Accept-Language、Accept-Encoding、Referer 等请求头
+  enabled: true
+  delay:
+    # 最小延迟时间（毫秒）
+    min_ms: 1000
+    # 最大延迟时间（毫秒）
+    max_ms: 3000

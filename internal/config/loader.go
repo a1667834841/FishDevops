@@ -45,6 +45,13 @@ func defaultConfig() Config {
 			Level:  "info",
 			Format: "text",
 		},
+		AntiBot: AntiBotConfig{
+			Enabled: true,
+			Delay: DelayConfig{
+				MinMs: 1000,
+				MaxMs: 3000,
+			},
+		},
 	}
 }
 
@@ -101,6 +108,11 @@ func loadFromEnv(cfg *Config) {
 	// Logging配置
 	loader.setString("LOGGING_LEVEL", &cfg.Logging.Level)
 	loader.setString("LOGGING_FORMAT", &cfg.Logging.Format)
+
+	// AntiBot配置
+	loader.setBool("ANTI_BOT_ENABLED", &cfg.AntiBot.Enabled)
+	loader.setInt("ANTI_BOT_DELAY_MIN_MS", &cfg.AntiBot.Delay.MinMs)
+	loader.setInt("ANTI_BOT_DELAY_MAX_MS", &cfg.AntiBot.Delay.MaxMs)
 }
 
 // Validate 验证配置

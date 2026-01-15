@@ -87,7 +87,7 @@ func (c *Converter) MergeDetailToProduct(basic feishu.Product, detail *mtop.Item
 
 // BuildDetailURL 构建商品详情URL
 func BuildDetailURL(itemID string) string {
-	return fmt.Sprintf("https://2.taobao.com/item.htm?id=%s", itemID)
+	return fmt.Sprintf("https://www.goofish.com/item?id=%s", itemID)
 }
 
 // Result 执行结果

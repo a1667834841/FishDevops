@@ -30,6 +30,11 @@ func (f *Fetcher) InitClient() (*mtop.Client, error) {
 
 	return mtop.NewClient(cookieResult.Token, "34839810",
 		mtop.WithCookies(cookieResult.Cookies),
+		mtop.WithAntiBotConfig(
+			f.cfg.AntiBot.Enabled,
+			f.cfg.AntiBot.Delay.MinMs,
+			f.cfg.AntiBot.Delay.MaxMs,
+		),
 	), nil
 }
 
