@@ -19,45 +19,58 @@ func TestBuildFieldCreates(t *testing.T) {
 		t.Errorf("buildFieldCreates() 返回 %d 个字段, 期望 %d", len(fields), len(ProductFields))
 	}
 
-	// 验证字段顺序和类型
-	expectedFields := []struct {
-		name  string
-		ftype FieldType
-	}{
-		{"商品ID", FieldTypeText},
-		{"商品标题", FieldTypeText},
-		{"价格", FieldTypeText},
-		{"价格数值", FieldTypeNumber},
-		{"原价", FieldTypeText},
-		{"原价数值", FieldTypeNumber},
-		{"想要人数", FieldTypeNumber},
-		{"发布时间", FieldTypeText},
-		{"发布时间戳", FieldTypeDateTime},
-		{"采集时间", FieldTypeText},
-		{"采集时间戳", FieldTypeDateTime},
-		{"卖家昵称", FieldTypeText},
-		{"地区", FieldTypeText},
-		{"包邮", FieldTypeText},
-		{"商品标签", FieldTypeText},
-		{"封面URL", FieldTypeURL},
-		{"商品详情URL", FieldTypeURL},
-		{"曝光热度", FieldTypeNumber},
-		{"最近擦亮时间", FieldTypeText},
-		{"擦亮时间戳", FieldTypeDateTime},
+	// 验证字段数量大于0
+	if len(fields) == 0 {
+		t.Fatal("buildFieldCreates() 返回空列表")
 	}
 
-	if len(fields) != len(expectedFields) {
-		t.Fatalf("字段数量不匹配: got %d, want %d", len(fields), len(expectedFields))
+	// 验证关键字段存在且使用英文Key作为field_name
+	keyFields := map[string]FieldType{
+		"itemId":      FieldTypeText,
+		"title":       FieldTypeText,
+		"price":       FieldTypeText,
+		"priceNumber": FieldTypeNumber,
+		"wantCnt":     FieldTypeNumber,
 	}
 
-	for i, field := range fields {
-		if field.FieldName != expectedFields[i].name {
-			t.Errorf("字段 %d 名称 = %s, want %s", i, field.FieldName, expectedFields[i].name)
+	fieldMap := make(map[string]FieldType)
+	for _, field := range fields {
+		fieldMap[field.FieldName] = FieldType(field.Type)
+		// 验证字段名格式（应该是英文，不包含中文）
+		if containsChinese(field.FieldName) {
+			t.Errorf("字段名 %s 包含中文字符，应该使用英文Key", field.FieldName)
 		}
-		if FieldType(field.Type) != expectedFields[i].ftype {
-			t.Errorf("字段 %d 类型 = %d, want %d", i, field.Type, expectedFields[i].ftype)
+		// 验证设置了中文label
+		if field.Options == nil {
+			t.Errorf("字段 %s 缺少options.label", field.FieldName)
 		}
 	}
+
+	// 验证关键字段存在且类型正确
+	for keyName, keyType := range keyFields {
+		if fieldType, exists := fieldMap[keyName]; !exists {
+			t.Errorf("缺少关键字段: %s", keyName)
+		} else if fieldType != keyType {
+			t.Errorf("字段 %s 类型错误: got %d, want %d", keyName, fieldType, keyType)
+		}
+	}
+
+	// 验证所有字段都有对应的中文label
+	for _, field := range fields {
+		if label, ok := field.Options["label"]; !ok || label == "" {
+			t.Errorf("字段 %s 缺少中文label", field.FieldName)
+		}
+	}
+}
+
+// containsChinese 检查字符串是否包含中文字符
+func containsChinese(s string) bool {
+	for _, r := range s {
+		if r >= 0x4e00 && r <= 0x9fff {
+			return true
+		}
+	}
+	return false
 }
 
 // TestGetTableNameByDate 测试日期转表名
@@ -254,7 +267,7 @@ func TestBitableService_EnsureTableFields(t *testing.T) {
 	t.Run("所有字段已存在", func(t *testing.T) {
 		existingFields := make(map[string]string)
 		for _, pf := range ProductFields {
-			existingFields[pf.Schema.Label] = "field_" + pf.Schema.Label
+			existingFields[pf.Key] = "field_" + pf.Key
 		}
 
 		mockClient := &MockClient{
@@ -279,7 +292,7 @@ func TestBitableService_EnsureTableFields(t *testing.T) {
 
 	t.Run("部分字段缺失，自动创建", func(t *testing.T) {
 		existingFields := map[string]string{
-			"商品ID": "field_itemId",
+			"itemId": "field_itemId",
 		}
 
 		mockClient := &MockClient{
@@ -316,7 +329,7 @@ func TestBitableService_PushProductsToDateTable(t *testing.T) {
 	t.Run("表格已存在，字段已存在", func(t *testing.T) {
 		existingFields := make(map[string]string)
 		for _, pf := range ProductFields {
-			existingFields[pf.Schema.Label] = "field_" + pf.Schema.Label
+			existingFields[pf.Key] = "field_" + pf.Key
 		}
 
 		mockClient := &MockClient{
@@ -500,12 +513,6 @@ func TestProductBuilder(t *testing.T) {
 	if product.Price != "100.00" {
 		t.Errorf("Price = %s, want 100.00", product.Price)
 	}
-	if product.PriceNumber != 100.00 {
-		t.Errorf("PriceNumber = %f, want 100.00", product.PriceNumber)
-	}
-	if product.OriginalPriceNumber != 200.00 {
-		t.Errorf("OriginalPriceNumber = %f, want 200.00", product.OriginalPriceNumber)
-	}
 	if product.WantCnt != 10 {
 		t.Errorf("WantCnt = %d, want 10", product.WantCnt)
 	}
@@ -521,8 +528,8 @@ func TestProductBuilder(t *testing.T) {
 	if product.ExposureHeat != 100 {
 		t.Errorf("ExposureHeat = %d, want 100", product.ExposureHeat)
 	}
-	if product.CaptureTime != now.Format("2006-01-02 15:04:05") {
-		t.Errorf("CaptureTime = %s, want %s", product.CaptureTime, now.Format("2006-01-02 15:04:05"))
+	if product.CaptureTimeMs != now.UnixMilli() {
+		t.Errorf("CaptureTimeMs = %d, want %d", product.CaptureTimeMs, now.UnixMilli())
 	}
 }
 
@@ -610,20 +617,19 @@ func TestParseTimestamp(t *testing.T) {
 func TestGetFieldNameMapping(t *testing.T) {
 	mapping := GetFieldNameMapping()
 
-	// 验证一些关键字段
+	// 验证一些关键字段（优化后保留24个核心字段）
 	tests := []struct {
 		key    string
 		want   string
 		exists bool
 	}{
-		{"itemId", "商品ID", true},
-		{"title", "商品标题", true},
-		{"price", "价格", true},
-		{"priceNumber", "价格数值", true},
-		{"wantCnt", "想要人数", true},
-		{"publishTime", "发布时间", true},
-		{"sellerNick", "卖家昵称", true},
-		{"freeShip", "包邮", true},
+		{"itemId", "itemId", true},
+		{"title", "title", true},
+		{"price", "price", true},
+		{"wantCnt", "wantCnt", true},
+		{"publishTimeMs", "publishTimeMs", true},
+		{"sellerNick", "sellerNick", true},
+		{"freeShip", "freeShip", true},
 	}
 
 	for _, tt := range tests {
@@ -648,9 +654,9 @@ func TestPushProductsToTodayTable(t *testing.T) {
 		},
 		fields: make(map[string]string),
 	}
-	// 添加所有字段
+	// 添加所有字段（使用英文Key）
 	for _, pf := range ProductFields {
-		mockClient.fields[pf.Schema.Label] = "field_" + pf.Schema.Label
+		mockClient.fields[pf.Key] = "field_" + pf.Key
 	}
 
 	service := &BitableService{

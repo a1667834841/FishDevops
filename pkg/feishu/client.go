@@ -130,7 +130,7 @@ type CreateRecordsResponse struct {
 
 // PushToBitable 推送数据到飞书多维表格
 func (c *Client) PushToBitable(appToken, tableToken string, products []Product) (*PushToBitableResponse, error) {
-	
+
 	// fmt.Printf("[DEBUG] appToken=%s, tableToken=%s\n", maskToken(appToken), maskToken(tableToken))
 
 	// 获取访问令牌
@@ -164,30 +164,13 @@ func (c *Client) PushToBitable(appToken, tableToken string, products []Product) 
 		// 价格
 		addField("price", product.Price)
 
-		// 价格数值
-		if fieldName, ok := fieldNameMapping["priceNumber"]; ok {
-			if product.PriceNumber > 0 {
-				fields[fieldName] = product.PriceNumber
-			}
-		}
-
 		// 原价
 		addField("originalPrice", product.OriginalPrice)
-
-		// 原价数值
-		if fieldName, ok := fieldNameMapping["originalPriceNumber"]; ok {
-			if product.OriginalPriceNumber > 0 {
-				fields[fieldName] = product.OriginalPriceNumber
-			}
-		}
 
 		// 想要人数
 		if fieldName, ok := fieldNameMapping["wantCnt"]; ok {
 			fields[fieldName] = product.WantCnt
 		}
-
-		// 发布时间
-		addField("publishTime", product.PublishTime)
 
 		// 发布时间戳
 		if fieldName, ok := fieldNameMapping["publishTimeMs"]; ok {
@@ -195,9 +178,6 @@ func (c *Client) PushToBitable(appToken, tableToken string, products []Product) 
 				fields[fieldName] = product.PublishTimeMs
 			}
 		}
-
-		// 采集时间
-		addField("captureTime", product.CaptureTime)
 
 		// 采集时间戳
 		if fieldName, ok := fieldNameMapping["captureTimeMs"]; ok {
@@ -239,16 +219,6 @@ func (c *Client) PushToBitable(appToken, tableToken string, products []Product) 
 			}
 		}
 
-		// 擦亮时间
-		addField("proPolishTime", product.ProPolishTime)
-
-		// 擦亮时间戳
-		if fieldName, ok := fieldNameMapping["proPolishTimeMs"]; ok {
-			if product.ProPolishTimeMs > 0 {
-				fields[fieldName] = product.ProPolishTimeMs
-			}
-		}
-
 		// ==================== 新增字段 ====================
 
 		// 商品热度指标
@@ -265,22 +235,9 @@ func (c *Client) PushToBitable(appToken, tableToken string, products []Product) 
 
 		// 商品属性
 		addField("condition", product.Condition)
-		if fieldName, ok := fieldNameMapping["isNew"]; ok {
-			if product.IsNew {
-				fields[fieldName] = product.IsNew
-			}
-		}
 
 		// 卖家信息
-		addField("sellerId", product.SellerID)
 		addField("sellerCredit", product.SellerCredit)
-		addField("shopLevel", product.ShopLevel)
-		addField("sellerSignature", product.SellerSignature)
-		if fieldName, ok := fieldNameMapping["sellerRegDays"]; ok {
-			if product.SellerRegDays > 0 {
-				fields[fieldName] = product.SellerRegDays
-			}
-		}
 		if fieldName, ok := fieldNameMapping["sellerItemCount"]; ok {
 			if product.SellerItemCount > 0 {
 				fields[fieldName] = product.SellerItemCount
@@ -294,7 +251,6 @@ func (c *Client) PushToBitable(appToken, tableToken string, products []Product) 
 
 		// 商品描述
 		addField("description", product.Description)
-		addField("desc", product.Desc)
 		addField("subTitle", product.SubTitle)
 
 		// 媒体资源 - 视频URL
@@ -304,44 +260,8 @@ func (c *Client) PushToBitable(appToken, tableToken string, products []Product) 
 			}
 		}
 
-		// 分类信息
-		if fieldName, ok := fieldNameMapping["categoryId"]; ok {
-			if product.CategoryID > 0 {
-				fields[fieldName] = product.CategoryID
-			}
-		}
-
 		// 商品状态
-		addField("status", product.Status)
-		if fieldName, ok := fieldNameMapping["itemStatus"]; ok {
-			if product.ItemStatus > 0 {
-				fields[fieldName] = product.ItemStatus
-			}
-		}
 		addField("itemStatusStr", product.ItemStatusStr)
-
-		// 数组字段（JSON格式）
-		addField("imageListJson", product.ImageListJSON)
-		addField("skuListJson", product.SKUListJSON)
-		addField("cpvLabelsJson", product.CPVLabelsJSON)
-		addField("itemTagsJson", product.ItemTagsJSON)
-
-		// 其他
-		if fieldName, ok := fieldNameMapping["hasSku"]; ok {
-			if product.HasSKU {
-				fields[fieldName] = product.HasSKU
-			}
-		}
-		if fieldName, ok := fieldNameMapping["totalStock"]; ok {
-			if product.TotalStock > 0 {
-				fields[fieldName] = product.TotalStock
-			}
-		}
-		if fieldName, ok := fieldNameMapping["priceInCent"]; ok {
-			if product.PriceInCent > 0 {
-				fields[fieldName] = product.PriceInCent
-			}
-		}
 
 		// 调试日志：打印第一个商品的详细信息
 		if i == 0 {
@@ -397,11 +317,25 @@ func (c *Client) PushToBitable(appToken, tableToken string, products []Product) 
 
 	if createResp.Code != 0 {
 		// 打印详细错误信息
-		fmt.Printf("[DEBUG] API 错误响应:\n")
+		fmt.Printf("[ERROR] API 错误响应:\n")
 		fmt.Printf("  Code: %d\n", createResp.Code)
 		fmt.Printf("  Msg: %s\n", createResp.Msg)
+
+		// 根据错误码提供更具体的错误信息
+		var errMsg string
+		switch createResp.Code {
+		case 99991663: // 字段不存在错误
+			errMsg = fmt.Sprintf("字段不存在: %s。请确保所有字段已创建。建议调用 EnsureTableFields() 检查字段", createResp.Msg)
+		case 99991600: // 字段类型不匹配
+			errMsg = fmt.Sprintf("字段类型不匹配: %s。请检查字段定义与数据格式是否一致", createResp.Msg)
+		case 99991400: // 无效的请求参数
+			errMsg = fmt.Sprintf("无效的请求参数: %s。请检查数据格式", createResp.Msg)
+		default:
+			errMsg = createResp.Msg
+		}
+
 		fmt.Printf("  完整响应: %s\n", string(body))
-		return nil, fmt.Errorf("推送失败: %s", createResp.Msg)
+		return nil, fmt.Errorf("推送失败 (code=%d): %s", createResp.Code, errMsg)
 	}
 
 	// 构建响应
@@ -668,15 +602,18 @@ func (c *Client) GetTableFields(appToken, tableToken string) (map[string]string,
 	return fields, nil
 }
 
-// CreateFieldRequest 创建字段请求
-type CreateFieldRequest struct {
-	Field FieldCreate `json:"field"`
-}
-
 // CreateFieldResponse 创建字段响应
 type CreateFieldResponse struct {
-	Code int    `json:"code"`
-	Msg  string `json:"msg"`
+	Code  int    `json:"code"`
+	Msg   string `json:"msg"`
+	Error *struct {
+		FieldViolations []struct {
+			Field       string `json:"field"`
+			Description string `json:"description"`
+		} `json:"field_violations,omitempty"`
+		LogID          string `json:"log_id,omitempty"`
+		Troubleshooter string `json:"troubleshooter,omitempty"`
+	} `json:"error,omitempty"`
 	Data struct {
 		Field struct {
 			FieldID   string `json:"field_id"`
@@ -692,13 +629,14 @@ func (c *Client) CreateField(appToken, tableToken string, field FieldCreate) (st
 		return "", fmt.Errorf("获取访问令牌失败: %w", err)
 	}
 
-	reqBody := CreateFieldRequest{
-		Field: field,
-	}
-	jsonData, err := json.Marshal(reqBody)
+	// 直接序列化 FieldCreate，不再嵌套在 field 对象中
+	jsonData, err := json.Marshal(field)
 	if err != nil {
 		return "", fmt.Errorf("构建请求失败: %w", err)
 	}
+
+	// 打印请求体用于调试
+	fmt.Printf("[DEBUG] 创建字段请求体: %s\n", string(jsonData))
 
 	url := fmt.Sprintf(baseURL+"/open-apis/bitable/v1/apps/%s/tables/%s/fields", appToken, tableToken)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
@@ -720,13 +658,29 @@ func (c *Client) CreateField(appToken, tableToken string, field FieldCreate) (st
 		return "", fmt.Errorf("读取响应失败: %w", err)
 	}
 
+	// 打印响应用于调试
+	fmt.Printf("[DEBUG] 创建字段响应: %s\n", string(body))
+
 	var createResp CreateFieldResponse
 	if err := json.Unmarshal(body, &createResp); err != nil {
-		return "", fmt.Errorf("解析响应失败: %w", err)
+		return "", fmt.Errorf("解析响应失败: %w, 响应内容: %s", err, string(body))
 	}
 
 	if createResp.Code != 0 {
-		return "", fmt.Errorf("创建字段失败: %s", createResp.Msg)
+		// 构建更详细的错误信息
+		errMsg := fmt.Sprintf("code=%d, msg=%s", createResp.Code, createResp.Msg)
+		if createResp.Error != nil {
+			if len(createResp.Error.FieldViolations) > 0 {
+				errMsg += ", 字段验证错误:"
+				for _, fv := range createResp.Error.FieldViolations {
+					errMsg += fmt.Sprintf(" [%s: %s]", fv.Field, fv.Description)
+				}
+			}
+			if createResp.Error.LogID != "" {
+				errMsg += fmt.Sprintf(", log_id=%s", createResp.Error.LogID)
+			}
+		}
+		return "", fmt.Errorf("创建字段失败: %s", errMsg)
 	}
 
 	return createResp.Data.Field.FieldID, nil

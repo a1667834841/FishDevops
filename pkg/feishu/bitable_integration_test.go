@@ -237,8 +237,8 @@ func TestIntegrationEnsureTableFields(t *testing.T) {
 
 	t.Logf("✓ 表格当前共有 %d 个字段", len(fields))
 
-	// 检查关键字段是否存在
-	expectedFields := []string{"商品ID", "商品标题", "价格", "想要人数"}
+	// 检查关键字段是否存在（使用英文Key作为field_name）
+	expectedFields := []string{"itemId", "title", "price", "wantCnt"}
 	missingFields := []string{}
 	for _, expected := range expectedFields {
 		if _, exists := fields[expected]; !exists {
@@ -271,32 +271,30 @@ func TestIntegrationPushProductsToDateTable(t *testing.T) {
 	// 创建测试商品数据
 	testProducts := []Product{
 		{
-			ItemID:     "integration_test_item_001",
-			Title:      "集成测试商品",
-			Price:      "99.99",
-			PriceNumber: 99.99,
-			WantCnt:    5,
-			PublishTime: time.Now().Format("2006-01-02 15:04:05"),
-			SellerNick: "测试卖家",
-			SellerCity: "测试城市",
-			FreeShip:   "是",
-			Tags:       "测试标签",
-			CoverURL:   "https://example.com/cover.jpg",
-			DetailURL:  "https://example.com/detail",
+			ItemID:        "integration_test_item_001",
+			Title:         "集成测试商品",
+			Price:         "99.99",
+			WantCnt:       5,
+			PublishTimeMs: time.Now().UnixMilli(),
+			SellerNick:    "测试卖家",
+			SellerCity:    "测试城市",
+			FreeShip:      "是",
+			Tags:          "测试标签",
+			CoverURL:      "https://example.com/cover.jpg",
+			DetailURL:     "https://example.com/detail",
 		},
 		{
-			ItemID:     "integration_test_item_002",
-			Title:      "集成测试商品2",
-			Price:      "199.99",
-			PriceNumber: 199.99,
-			WantCnt:    10,
-			PublishTime: time.Now().Format("2006-01-02 15:04:05"),
-			SellerNick: "测试卖家2",
-			SellerCity: "测试城市2",
-			FreeShip:   "否",
-			Tags:       "测试标签2",
-			CoverURL:   "https://example.com/cover2.jpg",
-			DetailURL:  "https://example.com/detail2",
+			ItemID:        "integration_test_item_002",
+			Title:         "集成测试商品2",
+			Price:         "199.99",
+			WantCnt:       10,
+			PublishTimeMs: time.Now().UnixMilli(),
+			SellerNick:    "测试卖家2",
+			SellerCity:    "测试城市2",
+			FreeShip:      "否",
+			Tags:          "测试标签2",
+			CoverURL:      "https://example.com/cover2.jpg",
+			DetailURL:     "https://example.com/detail2",
 		},
 	}
 
@@ -328,7 +326,6 @@ func TestIntegrationPushProductsToDateTable(t *testing.T) {
 				ItemID:     "integration_test_item_single",
 				Title:      "单个测试商品",
 				Price:      "88.88",
-				PriceNumber: 88.88,
 				WantCnt:    3,
 				SellerNick: "单个测试卖家",
 			},
@@ -367,7 +364,6 @@ func TestIntegrationPushProductsToTodayTable(t *testing.T) {
 			ItemID:     "today_test_item_001",
 			Title:      "今天测试商品",
 			Price:      "66.66",
-			PriceNumber: 66.66,
 			WantCnt:    2,
 			SellerNick: "今天测试卖家",
 		},
@@ -450,16 +446,15 @@ func TestIntegrationFullFlow(t *testing.T) {
 	t.Log("步骤7: 推送测试数据到表格")
 	testProducts := []Product{
 		{
-			ItemID:     "full_flow_test_001",
-			Title:      "完整流程测试商品",
-			Price:      "123.45",
-			PriceNumber: 123.45,
-			WantCnt:    7,
-			PublishTime: time.Now().Format("2006-01-02 15:04:05"),
-			SellerNick: "完整流程测试卖家",
-			SellerCity: "完整流程测试城市",
-			FreeShip:   "是",
-			Tags:       "完整流程测试",
+			ItemID:        "full_flow_test_001",
+			Title:         "完整流程测试商品",
+			Price:         "123.45",
+			WantCnt:       7,
+			PublishTimeMs: time.Now().UnixMilli(),
+			SellerNick:    "完整流程测试卖家",
+			SellerCity:    "完整流程测试城市",
+			FreeShip:      "是",
+			Tags:          "完整流程测试",
 		},
 	}
 
@@ -594,11 +589,8 @@ func TestIntegrationProductBuilder(t *testing.T) {
 	if product.ItemID != "builder_test_001" {
 		t.Errorf("ItemID错误: got %s", product.ItemID)
 	}
-	if product.PriceNumber != 299.99 {
-		t.Errorf("PriceNumber错误: got %f", product.PriceNumber)
-	}
-	if product.OriginalPriceNumber != 399.99 {
-		t.Errorf("OriginalPriceNumber错误: got %f", product.OriginalPriceNumber)
+	if product.Price != "299.99" {
+		t.Errorf("Price错误: got %s", product.Price)
 	}
 	if product.FreeShip != "是" {
 		t.Errorf("FreeShip错误: got %s", product.FreeShip)
@@ -668,6 +660,51 @@ func TestIntegrationErrorHandling(t *testing.T) {
 			t.Logf("✓ 正确处理零时间: %v", err)
 		}
 	})
+}
+
+// TestIntegrationStressTest 集成测试：压力测试
+func TestIntegrationStressTest(t *testing.T) {
+	skipIfNotIntegration(t)
+
+	appID, appSecret, appToken := getFeishuTestConfig(t)
+
+	client := NewClient(ClientConfig{
+		AppID:     appID,
+		AppSecret: appSecret,
+	})
+
+	service := NewBitableService(client, BitableConfig{
+		AppToken: appToken,
+	})
+
+	batchSize := 100
+	for i := 0; i < batchSize; i++ {
+		product := Product{
+			ItemID:     fmt.Sprintf("item_%d", i),
+			Title:      fmt.Sprintf("商品%d", i),
+			Price:      fmt.Sprintf("%.2f", float64(i+1)*10),
+			WantCnt:    i + 1,
+			SellerNick: "测试卖家",
+			SellerCity: "测试城市",
+			FreeShip:   "是",
+			Tags:       "测试标签",
+			CoverURL:   "https://example.com/cover.jpg",
+			DetailURL:  "https://example.com/detail",
+		}
+
+		resp, err := service.PushProductsToTodayTable([]Product{product})
+		if err != nil {
+			t.Fatalf("推送第 %d 个商品失败: %v", i, err)
+		}
+
+		if !resp.Success {
+			t.Fatalf("推送第 %d 个商品失败: %s", i, resp.Message)
+		}
+
+		t.Logf("✓ 成功推送第 %d 个商品", i)
+	}
+
+	t.Logf("✓ 成功推送 %d 个商品", batchSize)
 }
 
 // TestIntegrationConcurrentOperations 集成测试：并发操作
@@ -757,7 +794,6 @@ func TestIntegrationLargeBatch(t *testing.T) {
 			ItemID:     fmt.Sprintf("large_batch_test_%04d", i),
 			Title:      fmt.Sprintf("大批量测试商品 %d", i+1),
 			Price:      fmt.Sprintf("%.2f", float64(i+1)*10),
-			PriceNumber: float64(i + 1) * 10,
 			WantCnt:    i + 1,
 			SellerNick: fmt.Sprintf("卖家 %d", i+1),
 			SellerCity: "测试城市",
@@ -811,7 +847,6 @@ func TestIntegrationDataTypeHandling(t *testing.T) {
 			ItemID:     "type_test_number",
 			Title:      "数字类型测试",
 			Price:      "200.50",
-			PriceNumber: 200.50,
 			WantCnt:    999,
 			SellerNick: "数字卖家",
 			SellerCity: "数字城市",
@@ -858,4 +893,56 @@ func TestIntegrationEnvironmentValidation(t *testing.T) {
 	t.Logf("✓ 环境变量验证通过")
 	t.Logf("  AppID: %s", appID)
 	t.Logf("  AppToken: %s", appToken)
+}
+
+// TestIntegrationStressTestMultipleDates 集成测试：多日期压力测试
+func TestIntegrationStressTestMultipleDates(t *testing.T) {
+	skipIfNotIntegration(t)
+
+	appID, appSecret, appToken := getFeishuTestConfig(t)
+
+	client := NewClient(ClientConfig{
+		AppID:     appID,
+		AppSecret: appSecret,
+	})
+
+	service := NewBitableService(client, BitableConfig{
+		AppToken: appToken,
+	})
+
+	batchSize := 10
+	dates := []time.Time{}
+	for i := 0; i < batchSize; i++ {
+		dates = append(dates, time.Now().AddDate(0, 0, i))
+	}
+
+	for idx, date := range dates {
+		product := Product{
+			ItemID:     fmt.Sprintf("stress_%d", idx),
+			Title:      fmt.Sprintf("压力测试%d", idx),
+			Price:      "200.50",
+			SellerNick: "压力测试卖家",
+
+			SellerCity:    "压力测试城市",
+			FreeShip:      "是",
+			Tags:          "压力测试标签",
+			CoverURL:      "https://example.com/stress_cover.jpg",
+			DetailURL:     "https://example.com/stress_detail",
+			PublishTimeMs: time.Now().UnixMilli(),
+			ExposureHeat:  1000,
+		}
+
+		resp, err := service.PushProductsToDateTable(date, []Product{product})
+		if err != nil {
+			t.Fatalf("推送日期 %s 的商品失败: %v", date.Format("2006-01-02"), err)
+		}
+
+		if !resp.Success {
+			t.Fatalf("推送日期 %s 的商品失败: %s", date.Format("2006-01-02"), resp.Message)
+		}
+
+		t.Logf("✓ 成功推送日期 %s 的商品", date.Format("2006-01-02"))
+	}
+
+	t.Logf("✓ 成功推送 %d 个商品到不同日期的表格", batchSize)
 }

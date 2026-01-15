@@ -117,21 +117,15 @@ func (b *ProductBuilder) WithTitle(title string) *ProductBuilder {
 	return b
 }
 
-// WithPrice 设置价格（字符串和数值）
+// WithPrice 设置价格
 func (b *ProductBuilder) WithPrice(priceStr string) *ProductBuilder {
 	b.product.Price = priceStr
-	if priceNum, err := ParsePrice(priceStr); err == nil {
-		b.product.PriceNumber = priceNum
-	}
 	return b
 }
 
-// WithOriginalPrice 设置原价（字符串和数值）
+// WithOriginalPrice 设置原价
 func (b *ProductBuilder) WithOriginalPrice(originalPriceStr string) *ProductBuilder {
 	b.product.OriginalPrice = originalPriceStr
-	if priceNum, err := ParsePrice(originalPriceStr); err == nil {
-		b.product.OriginalPriceNumber = priceNum
-	}
 	return b
 }
 
@@ -141,17 +135,15 @@ func (b *ProductBuilder) WithWantCount(count int) *ProductBuilder {
 	return b
 }
 
-// WithPublishTime 设置发布时间
+// WithPublishTime 设置发布时间（时间戳）
 func (b *ProductBuilder) WithPublishTime(publishTime interface{}) *ProductBuilder {
 	switch v := publishTime.(type) {
 	case string:
-		b.product.PublishTime = v
 		if timestamp := ParseTimestamp(v); timestamp > 0 {
 			b.product.PublishTimeMs = timestamp
 		}
 	case int64:
 		b.product.PublishTimeMs = v
-		b.product.PublishTime = time.UnixMilli(v).Format("2006-01-02 15:04:05")
 	}
 	return b
 }
@@ -192,9 +184,8 @@ func (b *ProductBuilder) WithExposureHeat(heat int) *ProductBuilder {
 	return b
 }
 
-// WithCaptureTime 设置采集时间
+// WithCaptureTime 设置采集时间（时间戳）
 func (b *ProductBuilder) WithCaptureTime(captureTime time.Time) *ProductBuilder {
-	b.product.CaptureTime = captureTime.Format("2006-01-02 15:04:05")
 	b.product.CaptureTimeMs = captureTime.UnixMilli()
 	return b
 }
@@ -202,7 +193,7 @@ func (b *ProductBuilder) WithCaptureTime(captureTime time.Time) *ProductBuilder 
 // Build 构建商品
 func (b *ProductBuilder) Build() Product {
 	// 如果没有设置采集时间，使用当前时间
-	if b.product.CaptureTime == "" {
+	if b.product.CaptureTimeMs == 0 {
 		b.WithCaptureTime(time.Now())
 	}
 	return b.product
@@ -267,12 +258,16 @@ func (s *BitableService) GetOrCreateTableByDate(date time.Time) (tableID string,
 }
 
 // buildFieldCreates 根据 ProductFields 构建字段创建列表
+// 使用英文Key作为field_name，中文Label作为options.label
 func (s *BitableService) buildFieldCreates() []FieldCreate {
 	fields := make([]FieldCreate, 0, len(ProductFields))
 	for _, pf := range ProductFields {
 		field := FieldCreate{
-			FieldName: pf.Schema.Label,
+			FieldName: pf.Key, // 使用英文Key作为field_name
 			Type:      int(pf.Schema.Type),
+			Options: map[string]interface{}{
+				"label": pf.Schema.Label, // 设置中文显示名称
+			},
 		}
 		fields = append(fields, field)
 	}
