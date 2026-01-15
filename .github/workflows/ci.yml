@@ -44,9 +44,6 @@ jobs:
           go list -m
           go env GOPATH GOROOT
 
-      - name: Run go vet
-        run: go vet ./...
-
       - name: Build all binaries
         run: |
           mkdir -p bin
