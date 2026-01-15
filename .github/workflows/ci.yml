@@ -30,14 +30,21 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
 
+      - name: Verify Go installation
+        run: |
+          go version
+          go env GOROOT GOPATH
+          pwd
+          ls -la go.mod go.sum
+
       - name: Download dependencies
         run: go mod download
 
       - name: Tidy dependencies
-        run: go mod tidy
-
-      - name: Verify dependencies
-        run: go mod verify
+        run: |
+          go clean -modcache
+          go mod tidy
+          go mod verify
 
       - name: Verify module
         run: |
@@ -48,6 +55,7 @@ jobs:
         run: |
           mkdir -p bin
           echo "Building binaries..."
+          export GOFLAGS=-mod=mod
           go build -v -o bin/xianyu_aner ./main.go
           go build -v -o bin/server ./cmd/server/main.go
           go build -v -o bin/crawl ./cmd/crawl/main.go
