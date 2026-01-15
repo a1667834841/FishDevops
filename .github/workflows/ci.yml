@@ -56,9 +56,9 @@ jobs:
           mkdir -p bin
           echo "Building binaries..."
           export GOFLAGS=-mod=mod
-          go build -v -o bin/xianyu_aner ./main.go
-          go build -v -o bin/server ./cmd/server/main.go
-          go build -v -o bin/crawl ./cmd/crawl/main.go
+          go build -v -o bin/xianyu_aner .
+          go build -v -o bin/server ./cmd/server
+          go build -v -o bin/crawl ./cmd/crawl
           echo "Build complete:"
           ls -lh bin/
 
