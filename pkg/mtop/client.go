@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -106,100 +105,10 @@ type Response struct {
 
 // Do 发送请求
 func (c *Client) Do(req Request) (*Response, error) {
-	// 序列化 data
-	var dataStr string
-	switch v := req.Data.(type) {
-	case string:
-		dataStr = v
-	case []byte:
-		dataStr = string(v)
-	default:
-		jsonBytes, err := json.Marshal(v)
-		if err != nil {
-			return nil, fmt.Errorf("序列化数据失败: %w", err)
-		}
-		dataStr = string(jsonBytes)
-	}
-
-	// 生成签名
-	timestamp := fmt.Sprintf("%d", time.Now().UnixMilli())
-	signResult, err := Generate(dataStr, GenerateOptions{
-		Token:     c.token,
-		Timestamp: timestamp,
-		AppKey:    c.appKey,
-	})
+	// 构建请求
+	httpRequest, err := c.BuildRequest(req)
 	if err != nil {
-		return nil, fmt.Errorf("生成签名失败: %w", err)
-	}
-
-	// 构建请求 URL
-	apiURL := fmt.Sprintf("%s/%s/1.0/", c.baseURL, req.API)
-
-	// 构建 query 参数
-	values := url.Values{}
-	values.Set("jsv", "2.7.2")
-	values.Set("appKey", c.appKey)
-	values.Set("t", timestamp)
-	values.Set("sign", signResult.Sign)
-	values.Set("v", "1.0")
-	values.Set("type", "originaljson")
-	values.Set("accountSite", "xianyu")
-	values.Set("dataType", "json")
-	values.Set("timeout", "20000")
-	values.Set("api", req.API)
-	values.Set("sessionOption", "AutoLoginOnly")
-
-	// 根据API类型设置不同的 spm_cnt
-	// mtop.taobao.idle.pc.detail 是商品详情API，使用 item.0.0
-	// mtop.taobao.idlehome.home.webpc.feed 是首页feed流API，使用 home.0.0
-	spmCnt := "a21ybx.home.0.0"
-	if strings.Contains(req.API, "detail") {
-		spmCnt = "a21ybx.item.0.0"
-	}
-	values.Set("spm_cnt", spmCnt)
-
-	// 创建表单 body（data 作为表单字段）
-	formData := url.Values{}
-	formData.Set("data", dataStr)
-
-	// 创建 HTTP 请求
-	httpRequest, err := http.NewRequest("POST", apiURL, strings.NewReader(formData.Encode()))
-	if err != nil {
-		return nil, fmt.Errorf("创建请求失败: %w", err)
-	}
-
-	// 将参数添加到 query
-	httpRequest.URL.RawQuery = values.Encode()
-
-	// 设置请求头
-	httpRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-	httpRequest.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36")
-	httpRequest.Header.Set("Accept", "application/json, text/plain, */*")
-	httpRequest.Header.Set("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
-	httpRequest.Header.Set("Origin", "https://www.goofish.com")
-	httpRequest.Header.Set("Referer", "https://www.goofish.com/")
-	httpRequest.Header.Set("Sec-Fetch-Dest", "empty")
-	httpRequest.Header.Set("Sec-Fetch-Mode", "cors")
-	httpRequest.Header.Set("Sec-Fetch-Site", "same-site")
-	httpRequest.Header.Set("Sec-Ch-Ua", `"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"`)
-	httpRequest.Header.Set("Sec-Ch-Ua-Mobile", "?0")
-	httpRequest.Header.Set("Sec-Ch-Ua-Platform", `"Windows"`)
-
-	// 添加 cookies
-	for _, cookie := range c.cookies {
-		httpRequest.AddCookie(cookie)
-	}
-
-	// 打印调试信息
-	// fmt.Printf("\n[调试] 请求URL: %s\n", httpRequest.URL.String())
-	// fmt.Printf("[调试] 请求Body: %s\n", formData.Encode())
-	// 打印关键 Cookie
-	// fmt.Printf("[调试] 发送的 Cookie 数量: %d\n", len(c.cookies))
-	for _, cookie := range c.cookies {
-		if cookie.Name == "_m_h5_tk" || cookie.Name == "_m_h5_tk_enc" ||
-		   cookie.Name == "cookie2" || cookie.Name == "cna" || cookie.Name == "unb" {
-			// fmt.Printf("[调试]   %s: %s\n", cookie.Name, maskCookieValue(cookie.Value))
-		}
+		return nil, err
 	}
 
 	// 发送请求
@@ -214,9 +123,6 @@ func (c *Client) Do(req Request) (*Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("读取响应失败: %w", err)
 	}
-
-	// 打印调试信息
-	// fmt.Printf("\n[调试] API响应: status=%d, body=%s\n", resp.StatusCode, string(body))
 
 	// 解析响应
 	var result Response

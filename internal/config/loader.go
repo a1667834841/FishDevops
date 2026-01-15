@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -81,49 +80,27 @@ func loadFromFile(path string, cfg *Config) error {
 
 // loadFromEnv 从环境变量加载配置
 func loadFromEnv(cfg *Config) {
+	loader := newEnvLoader()
+
 	// Server配置
-	if v := os.Getenv("SERVER_PORT"); v != "" {
-		fmt.Sscanf(v, "%d", &cfg.Server.Port)
-	}
-	if v := os.Getenv("SERVER_MODE"); v != "" {
-		cfg.Server.Mode = v
-	}
-	if v := os.Getenv("SERVER_TIMEOUT"); v != "" {
-		fmt.Sscanf(v, "%d", &cfg.Server.Timeout)
-	}
+	loader.setInt("SERVER_PORT", &cfg.Server.Port)
+	loader.setString("SERVER_MODE", &cfg.Server.Mode)
+	loader.setInt("SERVER_TIMEOUT", &cfg.Server.Timeout)
 
 	// Browser配置
-	if v := os.Getenv("BROWSER_HEADLESS"); v != "" {
-		cfg.Browser.Headless = strings.ToLower(v) == "true" || v == "1"
-	}
-	if v := os.Getenv("BROWSER_TIMEOUT"); v != "" {
-		fmt.Sscanf(v, "%d", &cfg.Browser.Timeout)
-	}
+	loader.setBool("BROWSER_HEADLESS", &cfg.Browser.Headless)
+	loader.setInt("BROWSER_TIMEOUT", &cfg.Browser.Timeout)
 
 	// Feishu配置
-	if v := os.Getenv("FEISHU_ENABLED"); v != "" {
-		cfg.Feishu.Enabled = strings.ToLower(v) == "true" || v == "1"
-	}
-	if v := os.Getenv("FEISHU_APP_ID"); v != "" {
-		cfg.Feishu.AppID = v
-	}
-	if v := os.Getenv("FEISHU_APP_SECRET"); v != "" {
-		cfg.Feishu.AppSecret = v
-	}
-	if v := os.Getenv("FEISHU_APP_TOKEN"); v != "" {
-		cfg.Feishu.AppToken = v
-	}
-	if v := os.Getenv("FEISHU_TABLE_TOKEN"); v != "" {
-		cfg.Feishu.TableToken = v
-	}
+	loader.setBool("FEISHU_ENABLED", &cfg.Feishu.Enabled)
+	loader.setString("FEISHU_APP_ID", &cfg.Feishu.AppID)
+	loader.setString("FEISHU_APP_SECRET", &cfg.Feishu.AppSecret)
+	loader.setString("FEISHU_APP_TOKEN", &cfg.Feishu.AppToken)
+	loader.setString("FEISHU_TABLE_TOKEN", &cfg.Feishu.TableToken)
 
 	// Logging配置
-	if v := os.Getenv("LOGGING_LEVEL"); v != "" {
-		cfg.Logging.Level = v
-	}
-	if v := os.Getenv("LOGGING_FORMAT"); v != "" {
-		cfg.Logging.Format = v
-	}
+	loader.setString("LOGGING_LEVEL", &cfg.Logging.Level)
+	loader.setString("LOGGING_FORMAT", &cfg.Logging.Format)
 }
 
 // Validate 验证配置

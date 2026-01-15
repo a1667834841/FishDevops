@@ -10,7 +10,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"xianyu_aner/internal/config"
-	"xianyu_aner/internal/model"
+	"xianyu_aner/internal/server/handlers"
 	"xianyu_aner/pkg/feishu"
 	"xianyu_aner/pkg/mtop"
 )
@@ -19,7 +19,7 @@ import (
 type Server struct {
 	engine       *gin.Engine
 	config       config.Config
-	client       *mtop.Client
+	mtopClient   *mtop.Client
 	feishuClient *feishu.Client
 	feishuConfig *feishu.BitableConfig
 	httpServer   *http.Server
@@ -35,27 +35,31 @@ func New(cfg config.Config) *Server {
 		config: cfg,
 	}
 
-	// 创建MTOP客户端
-	s.client = mtop.NewClient(cfg.MTOP.Token, "34839810",
-		mtop.WithCookies(cfg.MTOP.Cookies),
-	)
-
-	// 创建飞书客户端（如果配置了）
-	if cfg.Feishu.Enabled && cfg.Feishu.AppID != "" && cfg.Feishu.AppSecret != "" {
-		s.feishuClient = feishu.NewClient(feishu.ClientConfig{
-			AppID:     cfg.Feishu.AppID,
-			AppSecret: cfg.Feishu.AppSecret,
-		})
-		s.feishuConfig = &feishu.BitableConfig{
-			AppToken:   cfg.Feishu.AppToken,
-			TableToken: cfg.Feishu.TableToken,
-		}
-	}
-
+	s.initializeClients()
 	s.setupMiddleware()
 	s.setupRoutes()
 
 	return s
+}
+
+// initializeClients 初始化客户端
+func (s *Server) initializeClients() {
+	// 创建MTOP客户端
+	s.mtopClient = mtop.NewClient(s.config.MTOP.Token, "34839810",
+		mtop.WithCookies(s.config.MTOP.Cookies),
+	)
+
+	// 创建飞书客户端（如果配置了）
+	if s.config.Feishu.Enabled && s.config.Feishu.AppID != "" && s.config.Feishu.AppSecret != "" {
+		s.feishuClient = feishu.NewClient(feishu.ClientConfig{
+			AppID:     s.config.Feishu.AppID,
+			AppSecret: s.config.Feishu.AppSecret,
+		})
+		s.feishuConfig = &feishu.BitableConfig{
+			AppToken:   s.config.Feishu.AppToken,
+			TableToken: s.config.Feishu.TableToken,
+		}
+	}
 }
 
 // setupMiddleware 设置中间件
@@ -67,12 +71,17 @@ func (s *Server) setupMiddleware() {
 
 // setupRoutes 设置路由
 func (s *Server) setupRoutes() {
+	// 创建handlers
+	feedHandler := handlers.NewFeedHandler(s.mtopClient)
+	healthHandler := handlers.NewHealthHandler()
+	feishuHandler := handlers.NewFeishuHandler(s.feishuClient, s.feishuConfig)
+
 	// API v1路由组
 	v1 := s.engine.Group("/api/v1")
 	{
-		v1.GET("/health", s.handleHealth)
-		v1.GET("/feed", s.handleFeed)
-		v1.POST("/feishu/push", s.handleFeishuPush)
+		v1.GET("/health", healthHandler.HandleHealth)
+		v1.GET("/feed", feedHandler.HandleFeed)
+		v1.POST("/feishu/push", feishuHandler.HandleFeishuPush)
 	}
 
 	// 根路径
@@ -107,9 +116,9 @@ func (s *Server) Stop(ctx context.Context) error {
 	return nil
 }
 
-// GetClient 获取MTOP客户端
-func (s *Server) GetClient() *mtop.Client {
-	return s.client
+// GetMtopClient 获取MTOP客户端
+func (s *Server) GetMtopClient() *mtop.Client {
+	return s.mtopClient
 }
 
 // GetFeishuClient 获取飞书客户端
@@ -191,121 +200,4 @@ func (s *Server) handleRoot(c *gin.Context) {
 </body>
 </html>`
 	c.String(http.StatusOK, html)
-}
-
-// handleHealth 健康检查
-func (s *Server) handleHealth(c *gin.Context) {
-	c.JSON(http.StatusOK, model.HealthResponse{
-		Status: "ok",
-		Time:   time.Now().Format(time.RFC3339),
-	})
-}
-
-// handleFeed 处理猜你喜欢请求
-func (s *Server) handleFeed(c *gin.Context) {
-	var req model.FeedRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Success: false,
-			Error:   "参数错误: pages 必须是 1-10 之间的整数",
-		})
-		return
-	}
-
-	// 设置默认值
-	if req.Pages == 0 {
-		req.Pages = 1
-	}
-	if req.DaysWithin == 0 {
-		req.DaysWithin = 7 // 默认近7天
-	}
-
-	log.Printf("收到请求: pages=%d, machId=%s, minWantCount=%d, daysWithin=%d",
-		req.Pages, req.MachID, req.MinWantCount, req.DaysWithin)
-
-	// 调用MTOP客户端获取数据，传入过滤选项
-	items, err := s.client.GuessYouLike(req.MachID, req.Pages, mtop.GuessYouLikeOptions{
-		MinWantCount: req.MinWantCount,
-		DaysWithin:   req.DaysWithin,
-	})
-	if err != nil {
-		log.Printf("获取数据失败: %v", err)
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Success: false,
-			Error:   fmt.Sprintf("获取数据失败: %v", err),
-		})
-		return
-	}
-
-	log.Printf("成功获取 %d 条商品（已过滤）", len(items))
-
-	// 构建响应
-	c.JSON(http.StatusOK, model.FeedResponse{
-		Success: true,
-		Data: model.FeedData{
-			Total:  len(items),
-			Pages:  req.Pages,
-			MachID: req.MachID,
-			Items:  items,
-		},
-	})
-}
-
-// handleFeishuPush 处理飞书推送请求
-func (s *Server) handleFeishuPush(c *gin.Context) {
-	// 检查是否配置了飞书客户端
-	feishuClient, feishuConfig := s.GetFeishuClient()
-	if feishuClient == nil || feishuConfig == nil {
-		c.JSON(http.StatusServiceUnavailable, model.ErrorResponse{
-			Success: false,
-			Error:   "飞书服务未配置，请设置 FeishuAppID 和 FeishuAppSecret",
-		})
-		return
-	}
-
-	var req model.FeishuPushRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{
-			Success: false,
-			Error:   fmt.Sprintf("参数错误: %v", err),
-		})
-		return
-	}
-
-	log.Printf("收到飞书推送请求: date=%s, products=%d", req.Date, len(req.Products))
-
-	// 使用请求中的token或默认配置
-	appToken := feishuConfig.AppToken
-	tableToken := feishuConfig.TableToken
-
-	if req.AppToken != "" {
-		appToken = req.AppToken
-	}
-	if req.TableToken != "" {
-		tableToken = req.TableToken
-	}
-
-	// 调用飞书客户端推送数据
-	result, err := feishuClient.PushToBitable(appToken, tableToken, req.Products)
-	if err != nil {
-		log.Printf("推送失败: %v", err)
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{
-			Success: false,
-			Error:   fmt.Sprintf("推送失败: %v", err),
-		})
-		return
-	}
-
-	log.Printf("推送成功: created=%d", result.Data.RecordsCreated)
-
-	// 构建响应
-	c.JSON(http.StatusOK, model.FeishuPushResponse{
-		Success: true,
-		Message: fmt.Sprintf("成功推送 %d 条记录到飞书表格", result.Data.RecordsCreated),
-		Data: model.FeishuPushData{
-			RecordsCreated: result.Data.RecordsCreated,
-			RecordsUpdated: result.Data.RecordsUpdated,
-			TableToken:     result.Data.TableToken,
-		},
-	})
 }

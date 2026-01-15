@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
   schedule:
     # 每30分钟执行一次（使用 UTC 时间）
-    - cron: '*/30 * * * *'
+    - cron: '*/15 * * * *'
 
 
 env:
@@ -96,7 +96,7 @@ jobs:
           FEISHU_TABLE_TOKEN: ${{ secrets.FEISHU_TABLE_TOKEN }}
         run: |
           ./bin/crawl \
-            -pages=15 \
+            -pages=10 \
             -min-want=1 \
             -days=14 \
             -output=feed_result.json \
