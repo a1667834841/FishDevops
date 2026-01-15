@@ -30,12 +30,6 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - name: Install Playwright browsers
-        run: |
-          go install github.com/playwright-community/playwright-go/cmd/playwright@latest
-          export PATH=$PATH:$(go env GOPATH)/bin
-          playwright install --with-deps chromium
-
       - name: Download dependencies
         run: go mod download
 
