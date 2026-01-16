@@ -59,11 +59,18 @@ jobs:
           echo "=== Go Environment ==="
           go env GOROOT GOPATH GOMOD
           go list -m
+          echo "=== Verify working directory ==="
+          pwd
+          ls -la go.mod
+          cat go.mod | head -n 3
           echo "=== Building binaries ==="
-          # 使用相对路径构建，确保Go模块正确识别
-          go build -v -o bin/xianyu_aner ./cmd/server
-          go build -v -o bin/server ./cmd/server
-          go build -v -o bin/crawl ./cmd/crawl
+          # 显式设置模块模式并使用相对路径构建
+          export GO111MODULE=on
+          export GOWORK=off
+          # 确保在模块根目录下构建
+          go build -v -mod=mod -o bin/xianyu_aner ./cmd/server
+          go build -v -mod=mod -o bin/server ./cmd/server
+          go build -v -mod=mod -o bin/crawl ./cmd/crawl
           echo "Build complete:"
           ls -lh bin/
 
