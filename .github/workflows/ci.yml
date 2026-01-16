@@ -43,8 +43,9 @@ jobs:
       - name: Tidy dependencies
         run: |
           go clean -modcache
-          go mod tidy
+          go mod tidy -compat=1.24
           go mod verify
+          go mod download
 
       - name: Verify module
         run: |
@@ -55,7 +56,15 @@ jobs:
         run: |
           mkdir -p bin
           echo "Building binaries..."
-          export GOFLAGS=-mod=mod
+          echo "=== Go Environment ==="
+          go env GOROOT GOPATH GOMOD
+          go list -m
+          echo "=== Verifying package paths ==="
+          go list -f '{{.ImportPath}} -> {{.Dir}}' ./...
+          echo "=== Building ==="
+          # 使用相对路径构建，确保Go模块正确识别
+          go build -v -o bin/xianyu_aner ./cmd/server
+          go build -v -o bin/server ./cmd/server
           go build -v -o bin/crawl ./cmd/crawl
           echo "Build complete:"
           ls -lh bin/
