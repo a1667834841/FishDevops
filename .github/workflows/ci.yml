@@ -59,9 +59,7 @@ jobs:
           echo "=== Go Environment ==="
           go env GOROOT GOPATH GOMOD
           go list -m
-          echo "=== Verifying package paths ==="
-          go list -f '{{.ImportPath}} -> {{.Dir}}' ./...
-          echo "=== Building ==="
+          echo "=== Building binaries ==="
           # 使用相对路径构建，确保Go模块正确识别
           go build -v -o bin/xianyu_aner ./cmd/server
           go build -v -o bin/server ./cmd/server
